@@ -1,4 +1,3 @@
-import { redirectInGameUser } from "@/server/redirect"
 import "@/styles/globals.css"
 
 import { Inter } from "next/font/google"

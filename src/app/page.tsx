@@ -18,7 +18,7 @@ async function StartGame() {
 
   const loggedIn = session && session.user
 
-  if (!loggedIn) return <div>Log in to play</div>
+  if (!loggedIn) return <Link href="/api/auth/signin">Log in to play</Link>
 
   return (
     <div>

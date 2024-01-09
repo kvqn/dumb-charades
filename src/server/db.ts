@@ -14,3 +14,14 @@ export const db =
   })
 
 if (env.NODE_ENV !== "production") globalForPrisma.prisma = db
+
+export async function updateUserLastSeen(userId: string): Promise<void> {
+  await db.user.update({
+    where: {
+      id: userId,
+    },
+    data: {
+      lastSeen: new Date(),
+    },
+  })
+}
