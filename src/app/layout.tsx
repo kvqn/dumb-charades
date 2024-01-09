@@ -1,3 +1,4 @@
+import { redirectInGameUser } from "@/server/redirect"
 import "@/styles/globals.css"
 
 import { Inter } from "next/font/google"
@@ -13,7 +14,7 @@ export const metadata = {
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode

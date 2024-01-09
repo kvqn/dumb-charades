@@ -42,13 +42,25 @@ model Session {
 }
 
 model User {
-    id            String    @id @default(cuid())
-    name          String?
-    email         String?   @unique
-    emailVerified DateTime?
-    image         String?
-    accounts      Account[]
-    sessions      Session[]
+    id             String        @id @default(cuid())
+    name           String?
+    email          String?       @unique
+    emailVerified  DateTime?
+    image          String?
+    accounts       Account[]
+    sessions       Session[]
+    ChatEvent      ChatEvent[]
+    UserParties    UserParties[]
+    CreatedParties Party[]
+}
+
+model UserParties {
+    user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    userId  String
+    party   Party  @relation(fields: [partyId], references: [id], onDelete: Cascade)
+    partyId String
+
+    @@unique([userId, partyId])
 }
 
 model VerificationToken {
@@ -57,4 +69,23 @@ model VerificationToken {
     expires    DateTime
 
     @@unique([identifier, token])
+}
+
+model Party {
+    id          String        @id @default(cuid())
+    leader      User          @relation(fields: [leaderId], references: [id], onDelete: Cascade)
+    leaderId    String
+    active      Boolean       @default(true)
+    UserParties UserParties[]
+    chatEvents  ChatEvent[]
+}
+
+model ChatEvent {
+    id        String   @id @default(cuid())
+    message   String
+    user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    userId    String
+    party     Party    @relation(fields: [partyId], references: [id], onDelete: Cascade)
+    partyId   String
+    createdAt DateTime @default(now())
 }
