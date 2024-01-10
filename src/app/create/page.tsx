@@ -19,6 +19,15 @@ export default async function Page() {
           userId: session.user.id,
         },
       },
+      Events: {
+        create: {
+          PartyCreateEvent: {
+            create: {
+              userId: session.user.id,
+            },
+          },
+        },
+      },
     },
   })
 

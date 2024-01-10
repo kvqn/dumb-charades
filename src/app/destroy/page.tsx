@@ -22,6 +22,15 @@ export default async function Page() {
       },
       data: {
         active: false,
+        Events: {
+          create: {
+            PartyDestroyEvent: {
+              create: {
+                userId: session.user.id,
+              },
+            },
+          },
+        },
       },
     })
   }

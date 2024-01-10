@@ -42,17 +42,22 @@ model Session {
 }
 
 model User {
-    id             String        @id @default(cuid())
-    name           String?
-    email          String?       @unique
-    emailVerified  DateTime?
-    image          String?
-    lastSeen       DateTime      @default(now())
-    accounts       Account[]
-    sessions       Session[]
-    ChatEvent      ChatEvent[]
-    UserParties    UserParties[]
-    CreatedParties Party[]
+    id                     String                   @id @default(cuid())
+    name                   String?
+    email                  String?                  @unique
+    emailVerified          DateTime?
+    image                  String?
+    lastSeen               DateTime                 @default(now())
+    accounts               Account[]
+    sessions               Session[]
+    UserParties            UserParties[]
+    CreatedParties         Party[]
+    ChatEvent              ChatEvent[]
+    UserEnterEvents        UserEnterEvent[]
+    UserLeaveEvents        UserLeaveEvent[]
+    PartyLeaderChangeEvent PartyLeaderChangeEvent[]
+    PartyCreateEvent       PartyCreateEvent[]
+    PartyDestroyEvent      PartyDestroyEvent[]
 }
 
 model UserParties {
@@ -78,15 +83,67 @@ model Party {
     leaderId    String
     active      Boolean       @default(true)
     UserParties UserParties[]
-    chatEvents  ChatEvent[]
+    Events      Event[]
+}
+
+model Event {
+    id                     Int                     @id @default(autoincrement())
+    party                  Party                   @relation(fields: [partyId], references: [id], onDelete: Cascade)
+    partyId                String
+    createdAt              DateTime                @default(now())
+    ChatEvent              ChatEvent?
+    UserEnterEvent         UserEnterEvent?
+    UserLeaveEvent         UserLeaveEvent?
+    PartyLeaderChangeEvent PartyLeaderChangeEvent?
+    PartyCreateEvent       PartyCreateEvent?
+    PartyDestroyEvent      PartyDestroyEvent?
 }
 
 model ChatEvent {
-    id        String   @id @default(cuid())
-    message   String
-    user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-    userId    String
-    party     Party    @relation(fields: [partyId], references: [id], onDelete: Cascade)
-    partyId   String
-    createdAt DateTime @default(now())
+    id      String @id @default(cuid())
+    eventId Int    @unique
+    Event   Event  @relation(fields: [eventId], references: [id])
+    message String
+    user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    userId  String
+}
+
+model UserEnterEvent {
+    id      String @id @default(cuid())
+    eventId Int    @unique
+    Event   Event  @relation(fields: [eventId], references: [id])
+    user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    userId  String
+}
+
+model UserLeaveEvent {
+    id      String @id @default(cuid())
+    eventId Int    @unique
+    Event   Event  @relation(fields: [eventId], references: [id])
+    user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    userId  String
+}
+
+model PartyLeaderChangeEvent {
+    id      String @id @default(cuid())
+    eventId Int    @unique
+    Event   Event  @relation(fields: [eventId], references: [id])
+    user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    userId  String
+}
+
+model PartyCreateEvent {
+    id      String @id @default(cuid())
+    userId  String
+    User    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    eventId Int    @unique
+    Event   Event  @relation(fields: [eventId], references: [id])
+}
+
+model PartyDestroyEvent {
+    id      String  @id @default(cuid())
+    eventId Int     @unique
+    Event   Event   @relation(fields: [eventId], references: [id])
+    userId  String?
+    User    User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

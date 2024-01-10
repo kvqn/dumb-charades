@@ -12,9 +12,6 @@ export default async function Page({
     where: {
       id: params.partyId,
     },
-    include: {
-      UserParties: true,
-    },
   })
 
   if (!party) return <div>Party not found</div>
@@ -24,14 +21,23 @@ export default async function Page({
   const loggedIn = session && session.user
 
   if (!loggedIn) return <Link href="/api/auth/signin">Log in to play</Link>
-  if (!party.UserParties.find((item) => item.userId === session.user.id)) {
-    await db.userParties.create({
-      data: {
-        userId: session.user.id,
-        partyId: party.id,
+
+  await db.party.update({
+    where: {
+      id: party.id,
+    },
+    data: {
+      Events: {
+        create: {
+          UserEnterEvent: {
+            create: {
+              userId: session.user.id,
+            },
+          },
+        },
       },
-    })
-  }
+    },
+  })
 
   return (
     <div>
