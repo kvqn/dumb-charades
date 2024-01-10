@@ -18,6 +18,8 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
     Prisma.ChatEventGetPayload<object>[]
   >([])
 
+  const [gameDestroyed, setGameDestroyed] = useState(false)
+
   useEffect(() => {
     let lastEventId = -1
     const members = new Map<string, Prisma.UserGetPayload<object>>()
@@ -36,7 +38,7 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
             setMembers([...members.values()])
           }
           if (event.PartyDestroyEvent) {
-            // TODO: handle this
+            setGameDestroyed(true)
           }
           if (event.ChatEvent) {
             setChatEvents([...chatEvents, event.ChatEvent])
@@ -56,6 +58,8 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
     }
     _()
   }, [])
+
+  if (gameDestroyed) return <div>Game destroyed</div>
 
   return (
     <div>

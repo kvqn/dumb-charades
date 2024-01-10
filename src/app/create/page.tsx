@@ -1,5 +1,6 @@
 import { getServerAuthSession } from "@/server/auth"
-import { db } from "@/server/db"
+import { db, updateUserLastSeen } from "@/server/db"
+import { gameProcess } from "@/server/game"
 import { redirectInGameUser } from "@/server/redirect"
 import { redirect } from "next/navigation"
 
@@ -30,6 +31,10 @@ export default async function Page() {
       },
     },
   })
+
+  await updateUserLastSeen(session.user.id)
+
+  const backgroundPromise = gameProcess(party.id)
 
   redirect(`/game/${party.id}`)
 }

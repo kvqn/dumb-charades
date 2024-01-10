@@ -1,5 +1,5 @@
 import { getServerAuthSession } from "@/server/auth"
-import { db } from "@/server/db"
+import { db, updateUserLastSeen } from "@/server/db"
 import Link from "next/link"
 import { Game } from "./Game"
 
@@ -21,6 +21,8 @@ export default async function Page({
   const loggedIn = session && session.user
 
   if (!loggedIn) return <Link href="/api/auth/signin">Log in to play</Link>
+
+  await updateUserLastSeen(session.user.id)
 
   await db.party.update({
     where: {

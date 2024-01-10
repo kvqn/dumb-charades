@@ -1,8 +1,15 @@
 "use server"
 
-import { db } from "../db"
+import { getServerAuthSession } from "../auth"
+import { db, updateUserLastSeen } from "../db"
 
 export async function getPartyEvents(partyId: string, lastEventId: number) {
+  const session = await getServerAuthSession()
+  const user = session?.user
+  if (!user) return []
+
+  await updateUserLastSeen(user.id)
+
   return await db.event.findMany({
     where: {
       partyId: partyId,
