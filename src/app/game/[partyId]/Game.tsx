@@ -1,16 +1,12 @@
 "use client"
 
-import { sleep } from "@/client/utils"
+import { max, sleep } from "@/client/utils"
 import { getPartyEvents } from "@/server/actions/getPartyEvents"
 import { sendMessage } from "@/server/actions/sendMessage"
 import { type Prisma } from "@prisma/client"
 import { type User } from "next-auth"
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
-
-function max(a: number, b: number) {
-  return a > b ? a : b
-}
 
 type ChatMessage = {
   createdAt: Date
@@ -108,7 +104,7 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
         await sleep(5000)
       }
     }
-    _()
+    void _()
   }, [])
 
   if (gameDestroyed) return <div>Game destroyed</div>
@@ -147,7 +143,7 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
                 await sendMessage(partyId, message)
               }
             }
-            _()
+            void _()
           }}
         >
           Send

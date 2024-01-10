@@ -31,6 +31,7 @@ const config = {
         checksVoidReturn: { attributes: false },
       },
     ],
+    "react-hooks/exhaustive-deps": "off",
   },
 }
 
