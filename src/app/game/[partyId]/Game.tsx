@@ -1,32 +1,18 @@
 "use client"
 
-import { max, sleep } from "@/client/utils"
-import { getPartyEvents } from "@/server/actions/getPartyEvents"
-import { sendMessage } from "@/server/actions/sendMessage"
+import type {
+  ChatMessage,
+  SocketChatEvent,
+  SocketPartyCreateEvent,
+  SocketPartyDestroyEvent,
+  SocketUserEnterEvent,
+  SocketUserLeaveEvent,
+} from "@/types"
 import { type Prisma } from "@prisma/client"
 import { type User } from "next-auth"
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
-
-type ChatMessage = {
-  createdAt: Date
-  event:
-    | ({
-        type: "ChatEvent"
-      } & Prisma.ChatEventGetPayload<{ include: { user: true } }>)
-    | ({
-        type: "PartyCreateEvent"
-      } & Prisma.PartyCreateEventGetPayload<{ include: { User: true } }>)
-    | ({
-        type: "PartyDestroyEvent"
-      } & Prisma.PartyDestroyEventGetPayload<{ include: { User: true } }>)
-    | ({
-        type: "UserEnterEvent"
-      } & Prisma.UserEnterEventGetPayload<{ include: { user: true } }>)
-    | ({
-        type: "UserLeaveEvent"
-      } & Prisma.UserLeaveEventGetPayload<{ include: { user: true } }>)
-}
+import { socket } from "@/client/socket"
 
 export function Game({ partyId, user }: { partyId: string; user: User }) {
   const [members, setMembers] = useState<Prisma.UserGetPayload<object>[]>([])
@@ -40,71 +26,102 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
   const [sendingMessage, setSendingMessage] = useState(false)
 
   useEffect(() => {
-    let lastEventId = -1
-    const members = new Map<string, Prisma.UserGetPayload<object>>()
-    const _chatEvents: typeof chatEvents = []
-    async function _() {
-      while (true) {
-        const events = await getPartyEvents(partyId, lastEventId)
-        console.log(events)
-        for (const event of events) {
-          console.log("members", members)
-          if (event.PartyCreateEvent) {
-            members.set(
-              event.PartyCreateEvent.User.id,
-              event.PartyCreateEvent.User,
-            )
-            setLeaderId(event.PartyCreateEvent.userId)
-            setMembers([...members.values()])
-            _chatEvents.push({
-              createdAt: event.createdAt,
-              event: { type: "PartyCreateEvent", ...event.PartyCreateEvent },
-            })
-            setChatEvents(_chatEvents)
-          }
-          if (event.PartyDestroyEvent) {
-            _chatEvents.push({
-              createdAt: event.createdAt,
-              event: { type: "PartyDestroyEvent", ...event.PartyDestroyEvent },
-            })
-            setGameDestroyed(true)
-          }
-          if (event.ChatEvent) {
-            if (event.ChatEvent.user.id === user.id) setSendingMessage(false)
-            _chatEvents.push({
-              createdAt: event.createdAt,
-              event: { type: "ChatEvent", ...event.ChatEvent },
-            })
-          }
-          if (event.UserEnterEvent) {
-            members.set(event.UserEnterEvent.user.id, event.UserEnterEvent.user)
-            setMembers([...members.values()])
-            _chatEvents.push({
-              createdAt: event.createdAt,
-              event: {
-                type: "UserEnterEvent",
-                ...event.UserEnterEvent,
-              },
-            })
-          }
-          if (event.UserLeaveEvent) {
-            members.delete(event.UserLeaveEvent.user.id)
-            setMembers([...members.values()])
-            _chatEvents.push({
-              createdAt: event.createdAt,
-              event: {
-                type: "UserLeaveEvent",
-                ...event.UserLeaveEvent,
-              },
-            })
-          }
-          lastEventId = max(lastEventId, event.id)
-        }
-        setChatEvents(_chatEvents)
-        await sleep(5000)
+    socket.emit("SocketIdentify", user.id)
+    const SocketIdentifyAckHandler = () => {
+      socket.emit("SocketJoinParty", partyId)
+    }
+    socket.on("SocketIdentifyAck", SocketIdentifyAckHandler)
+    console.log("socket", socket.id)
+    return () => {
+      socket.off("SocketIdentifyAck", SocketIdentifyAckHandler)
+    }
+  }, [])
+
+  useEffect(() => {
+    const SocketChatEventHandler = (event: SocketChatEvent) => {
+      console.log("SocketChatEvent", event)
+      setChatEvents([
+        ...chatEvents,
+        {
+          createdAt: new Date(),
+          event: {
+            type: "ChatEvent",
+            ...event,
+          },
+        },
+      ])
+      console.log(chatEvents)
+    }
+    socket.on("SocketChatEvent", SocketChatEventHandler)
+    return () => {
+      socket.off("SocketChatEvent", SocketChatEventHandler)
+    }
+  }, [chatEvents])
+
+  useEffect(() => {
+    const SocketUserEnterEventHandler = (event: SocketUserEnterEvent) => {
+      if (!members.find((member) => member.id === event.userId)) {
+        setMembers([...members, event.user])
+        setChatEvents([
+          ...chatEvents,
+          {
+            createdAt: new Date(),
+            event: {
+              type: "UserEnterEvent",
+              ...event,
+            },
+          },
+        ])
       }
     }
-    void _()
+
+    const SocketUserLeaveEventHandler = (event: SocketUserLeaveEvent) => {
+      setMembers(members.filter((member) => member.id !== event.userId))
+      setChatEvents([
+        ...chatEvents,
+        {
+          createdAt: new Date(),
+          event: {
+            type: "UserLeaveEvent",
+            ...event,
+          },
+        },
+      ])
+    }
+
+    const SocketPartyCreateEventHandler = (event: SocketPartyCreateEvent) => {
+      setMembers([...members, event.User])
+      setLeaderId(event.userId)
+      setChatEvents([
+        ...chatEvents,
+        {
+          createdAt: new Date(),
+          event: {
+            type: "PartyCreateEvent",
+            ...event,
+          },
+        },
+      ])
+    }
+
+    socket.on("SocketUserEnterEvent", SocketUserEnterEventHandler)
+    socket.on("SocketUserLeaveEvent", SocketUserLeaveEventHandler)
+    socket.on("SocketPartyCreateEvent", SocketPartyCreateEventHandler)
+    return () => {
+      socket.off("SocketUserEnterEvent", SocketUserEnterEventHandler)
+      socket.off("SocketUserLeaveEvent", SocketUserLeaveEventHandler)
+      socket.off("SocketPartyCreateEvent", SocketPartyCreateEventHandler)
+    }
+  }, [members, chatEvents, leaderId])
+
+  useEffect(() => {
+    const SocketPartyDestroyEventHandler = (_: SocketPartyDestroyEvent) => {
+      setGameDestroyed(true)
+    }
+    socket.on("SocketPartyDestroyEvent", SocketPartyDestroyEventHandler)
+    return () => {
+      socket.off("SocketPartyDestroyEvent", SocketPartyDestroyEventHandler)
+    }
   }, [])
 
   if (gameDestroyed) return <div>Game destroyed</div>
@@ -130,17 +147,21 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
       <div>
         Chat:
         <ChatMessages chatEvents={chatEvents} />
-        {sendingMessage ? <div>Sending message...</div> : null}
         <input className="border" type="text" ref={chatBoxRef} />
         <button
           onClick={() => {
             async function _() {
-              if (sendingMessage) return
               if (chatBoxRef.current?.value) {
                 const message = chatBoxRef.current?.value
                 chatBoxRef.current.value = ""
-                setSendingMessage(true)
-                await sendMessage(partyId, message)
+                const event: SocketChatEvent = {
+                  userId: user.id,
+                  name: user.name ?? "",
+                  image: user.image ?? null,
+                  message: message,
+                }
+                socket.emit("SocketChatEvent", event)
+                console.log("emited as socket", socket.id)
               }
             }
             void _()
@@ -157,7 +178,7 @@ function Message({ message }: { message: ChatMessage }) {
   if (message.event.type === "ChatEvent") {
     return (
       <div>
-        {message.event.user.name}: {message.event.message}
+        {message.event.name}: {message.event.message}
       </div>
     )
   }
