@@ -1,8 +1,11 @@
 import { db } from "@/server/db"
 import type {
   SocketChatEvent,
+  SocketDrawEvent,
+  SocketFinishDrawingEvent,
   SocketPartyCreateEvent,
   SocketPartyDestroyEvent,
+  SocketStartDrawingEvent,
   SocketUserEnterEvent,
 } from "@/types"
 import { Server } from "socket.io"
@@ -144,6 +147,33 @@ io.on("connection", (socket) => {
     })
 
     console.log("SocketChatEvent: created event")
+  })
+
+  socket.on("SocketStartDrawing", (event: SocketStartDrawingEvent) => {
+    const userId = socketUserMap.get(socket.id)
+    if (!userId) return
+    const partyId = userPartyMap.get(userId)
+    if (!partyId) return
+
+    socket.to(partyId).emit("SocketStartDrawing", event)
+  })
+
+  socket.on("SocketDraw", (event: SocketDrawEvent) => {
+    const userId = socketUserMap.get(socket.id)
+    if (!userId) return
+    const partyId = userPartyMap.get(userId)
+    if (!partyId) return
+
+    socket.to(partyId).emit("SocketDraw", event)
+  })
+
+  socket.on("SocketFinishDrawing", (event: SocketFinishDrawingEvent) => {
+    const userId = socketUserMap.get(socket.id)
+    if (!userId) return
+    const partyId = userPartyMap.get(userId)
+    if (!partyId) return
+
+    socket.to(partyId).emit("SocketFinishDrawing", event)
   })
 })
 

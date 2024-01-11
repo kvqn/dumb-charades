@@ -42,3 +42,17 @@ export type ChatMessage = {
         type: "UserLeaveEvent"
       } & SocketUserLeaveEvent)
 }
+
+export type SocketStartDrawingEvent = {
+  x: number
+  y: number
+}
+export type SocketDrawEvent = {
+  x: number
+  y: number
+}
+
+export type SocketFinishDrawingEvent = {
+  x: number
+  y: number
+}

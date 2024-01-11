@@ -13,6 +13,7 @@ import { type User } from "next-auth"
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 import { socket } from "@/client/socket"
+import { DrawingCanvas } from "./DrawingCanvas"
 
 export function Game({ partyId, user }: { partyId: string; user: User }) {
   const [members, setMembers] = useState<Prisma.UserGetPayload<object>[]>([])
@@ -127,7 +128,7 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
   if (gameDestroyed) return <div>Game destroyed</div>
 
   return (
-    <div>
+    <div className="ml-20">
       Game
       <div>Party {partyId}</div>
       <div>
@@ -144,6 +145,7 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
           <div key={idx}>{member.name}</div>
         ))}
       </div>
+      <DrawingCanvas />
       <div>
         Chat:
         <ChatMessages chatEvents={chatEvents} />
