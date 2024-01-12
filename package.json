@@ -7,10 +7,14 @@
     "build": "next build",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
-    "dev": "next dev",
+    "dev": "cat scripts/dev-message.txt",
+    "dev-socket": "npx tsx watch socket-server.ts",
+    "dev-next": "next dev",
     "postinstall": "prisma generate",
     "lint": "next lint",
-    "start": "next start",
+    "start": "cat scripts/start-message.txt",
+    "start-socket": "npx tsx socket-server.ts",
+    "start-next": "next start",
     "prepare": "husky install"
   },
   "dependencies": {
@@ -26,6 +30,7 @@
     "react-dom": "18.2.0",
     "socket.io": "^4.7.3",
     "socket.io-client": "^4.7.3",
+    "tsx": "^4.7.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {

@@ -1,6 +1,4 @@
 {
-    "prettier.configPath": "prettier.config.js",
-    "cSpell.words": [
-        "signin"
-    ]
+  "prettier.configPath": "prettier.config.js",
+  "cSpell.words": ["commitlint", "nextjs", "signin"]
 }

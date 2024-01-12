@@ -1,0 +1,4 @@
+Two servers are required for the app to function.
+
+Web Socket Server: npm run dev-socket
+NextJS Server: npm run dev-next
