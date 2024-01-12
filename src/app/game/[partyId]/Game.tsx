@@ -192,8 +192,8 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
   if (gameDestroyed) return <div>Game destroyed</div>
 
   return (
-    <div className="ml-20">
-      Game
+    <div className="flex flex-col items-center border">
+      <div>Game</div>
       <div>Game State : {gameState}</div>
       <div>Party {partyId}</div>
       <div>
@@ -206,14 +206,14 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
       </div>
       <div>
         Members:
-        {members.map((member, idx) => (
-          <div key={idx}>{member.name}</div>
-        ))}
+        <div className="flex">
+          {members.map((member, idx) => (
+            <div key={idx}>{member.name}</div>
+          ))}
+        </div>
       </div>
-      <div>
-        <div>
-          <div>Team Red:</div>
-          <TeamMembers team={teams.red} />
+      <div className="flex">
+        <div className="flex flex-col items-center">
           <button
             onClick={() => {
               const event: SocketChangeTeamEvent = {
@@ -230,10 +230,11 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
           >
             Join Red Team
           </button>
+          <div className="font-bold">TEAM RED</div>
+          <TeamMembers team={teams.red} />
         </div>
-        <div>
-          <div>Team Blue:</div>
-          <TeamMembers team={teams.blue} />
+        <DrawingCanvas />
+        <div className="flex flex-col items-center">
           <button
             onClick={() => {
               const event: SocketChangeTeamEvent = {
@@ -250,6 +251,8 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
           >
             Join Blue Team
           </button>
+          <div className="font-bold">TEAM BLUE</div>
+          <TeamMembers team={teams.blue} />
         </div>
       </div>
       <div>
@@ -262,7 +265,6 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
           </button>
         ) : null}
       </div>
-      <DrawingCanvas />
       <div>
         Chat:
         <ChatMessages chatEvents={chatMessages} />
@@ -331,7 +333,7 @@ function Message({ message }: { message: ChatMessage }) {
 
 function TeamMembers({ team }: { team: Map<string, SimpleUser> }) {
   return (
-    <div>
+    <div className="flex flex-col items-center">
       {Array.from(team.values()).map((user, idx) => (
         <div key={idx}>{user.name}</div>
       ))}
