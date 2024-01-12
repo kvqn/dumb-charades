@@ -58,6 +58,7 @@ model User {
     PartyLeaderChangeEvent PartyLeaderChangeEvent[]
     PartyCreateEvent       PartyCreateEvent[]
     PartyDestroyEvent      PartyDestroyEvent[]
+    ChangeTeamEvent        ChangeTeamEvent[]
 }
 
 model UserParties {
@@ -97,6 +98,7 @@ model Event {
     PartyLeaderChangeEvent PartyLeaderChangeEvent?
     PartyCreateEvent       PartyCreateEvent?
     PartyDestroyEvent      PartyDestroyEvent?
+    ChangeTeamEvent        ChangeTeamEvent?
 }
 
 model ChatEvent {
@@ -146,4 +148,18 @@ model PartyDestroyEvent {
     Event   Event   @relation(fields: [eventId], references: [id])
     userId  String?
     User    User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum Team {
+    red
+    blue
+}
+
+model ChangeTeamEvent {
+    id      String @id @default(cuid())
+    eventId Int    @unique
+    event   Event  @relation(fields: [eventId], references: [id])
+    userId  String
+    user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    team    Team
 }

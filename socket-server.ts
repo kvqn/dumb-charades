@@ -1,5 +1,6 @@
 import { db } from "@/server/db"
 import type {
+  SocketChangeTeamEvent,
   SocketChatEvent,
   SocketDrawEvent,
   SocketFinishDrawingEvent,
@@ -18,6 +19,7 @@ const io = new Server({
 
 const userPartyMap = new Map<string, string>()
 const socketUserMap = new Map<string, string>()
+const partyTeams = new Map<string, { red: Set<string>; blue: Set<string> }>()
 
 io.on("connection", (socket) => {
   console.log("connected", socket.id)
@@ -83,6 +85,11 @@ io.on("connection", (socket) => {
             User: true,
           },
         },
+        ChangeTeamEvent: {
+          include: {
+            user: true,
+          },
+        },
       },
       orderBy: {
         id: "asc",
@@ -114,6 +121,18 @@ io.on("connection", (socket) => {
           message: event.ChatEvent.message,
         }
         io.to(socket.id).emit("SocketChatEvent", emitEvent)
+      }
+
+      if (event.ChangeTeamEvent) {
+        const emitEvent: SocketChangeTeamEvent = {
+          user: {
+            id: event.ChangeTeamEvent.userId,
+            name: event.ChangeTeamEvent.user.name ?? "",
+            image: event.ChangeTeamEvent.user.image,
+          },
+          team: event.ChangeTeamEvent.team,
+        }
+        io.to(socket.id).emit("SocketChangeTeamEvent", emitEvent)
       }
     }
   })
@@ -174,6 +193,45 @@ io.on("connection", (socket) => {
     if (!partyId) return
 
     socket.to(partyId).emit("SocketFinishDrawing", event)
+  })
+
+  socket.on("SocketChangeTeamEvent", async (event: SocketChangeTeamEvent) => {
+    const userId = socketUserMap.get(socket.id)
+    if (!userId) return
+    const partyId = userPartyMap.get(userId)
+    if (!partyId) return
+
+    let teams
+    if (partyTeams.has(partyId)) {
+      teams = partyTeams.get(partyId)
+    } else {
+      teams = {
+        red: new Set<string>(),
+        blue: new Set<string>(),
+      }
+    }
+    if (event.team === "red") {
+      teams?.blue.delete(userId)
+      teams?.red.add(userId)
+    } else if (event.team === "blue") {
+      teams?.red.delete(userId)
+      teams?.blue.add(userId)
+    }
+
+    io.to(partyId).emit("SocketChangeTeamEvent", event)
+    await db.event.create({
+      data: {
+        partyId: partyId,
+        ChangeTeamEvent: {
+          create: {
+            userId: userId,
+            team: event.team,
+          },
+        },
+      },
+    })
+
+    console.log("SocketChangeTeamEvent")
   })
 })
 

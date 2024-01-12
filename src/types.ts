@@ -41,6 +41,9 @@ export type ChatMessage = {
     | ({
         type: "UserLeaveEvent"
       } & SocketUserLeaveEvent)
+    | ({
+        type: "ChangeTeamEvent"
+      } & SocketChangeTeamEvent)
 }
 
 export type SocketStartDrawingEvent = {
@@ -55,4 +58,15 @@ export type SocketDrawEvent = {
 export type SocketFinishDrawingEvent = {
   x: number
   y: number
+}
+
+export type SocketChangeTeamEvent = {
+  team: "red" | "blue"
+  user: SimpleUser
+}
+
+export type SimpleUser = {
+  id: string
+  name: string
+  image: string | null
 }

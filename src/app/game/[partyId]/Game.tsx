@@ -2,6 +2,8 @@
 
 import type {
   ChatMessage,
+  SimpleUser,
+  SocketChangeTeamEvent,
   SocketChatEvent,
   SocketPartyCreateEvent,
   SocketPartyDestroyEvent,
@@ -18,13 +20,19 @@ import { DrawingCanvas } from "./DrawingCanvas"
 export function Game({ partyId, user }: { partyId: string; user: User }) {
   const [members, setMembers] = useState<Prisma.UserGetPayload<object>[]>([])
   const [leaderId, setLeaderId] = useState<string | null>(null)
-  const [chatEvents, setChatEvents] = useState<ChatMessage[]>([])
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
 
   const [gameDestroyed, setGameDestroyed] = useState(false)
 
   const chatBoxRef = useRef<HTMLInputElement | null>(null)
 
-  const [sendingMessage, setSendingMessage] = useState(false)
+  const [teams, setTeams] = useState<{
+    red: Map<string, SimpleUser>
+    blue: Map<string, SimpleUser>
+  }>({
+    red: new Map(),
+    blue: new Map(),
+  })
 
   useEffect(() => {
     socket.emit("SocketIdentify", user.id)
@@ -41,8 +49,8 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
   useEffect(() => {
     const SocketChatEventHandler = (event: SocketChatEvent) => {
       console.log("SocketChatEvent", event)
-      setChatEvents([
-        ...chatEvents,
+      setChatMessages([
+        ...chatMessages,
         {
           createdAt: new Date(),
           event: {
@@ -51,20 +59,20 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
           },
         },
       ])
-      console.log(chatEvents)
+      console.log(chatMessages)
     }
     socket.on("SocketChatEvent", SocketChatEventHandler)
     return () => {
       socket.off("SocketChatEvent", SocketChatEventHandler)
     }
-  }, [chatEvents])
+  }, [chatMessages])
 
   useEffect(() => {
     const SocketUserEnterEventHandler = (event: SocketUserEnterEvent) => {
       if (!members.find((member) => member.id === event.userId)) {
         setMembers([...members, event.user])
-        setChatEvents([
-          ...chatEvents,
+        setChatMessages([
+          ...chatMessages,
           {
             createdAt: new Date(),
             event: {
@@ -78,8 +86,8 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
 
     const SocketUserLeaveEventHandler = (event: SocketUserLeaveEvent) => {
       setMembers(members.filter((member) => member.id !== event.userId))
-      setChatEvents([
-        ...chatEvents,
+      setChatMessages([
+        ...chatMessages,
         {
           createdAt: new Date(),
           event: {
@@ -91,10 +99,11 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
     }
 
     const SocketPartyCreateEventHandler = (event: SocketPartyCreateEvent) => {
-      setMembers([...members, event.User])
+      if (!members.find((member) => member.id === event.userId))
+        setMembers([...members, event.User])
       setLeaderId(event.userId)
-      setChatEvents([
-        ...chatEvents,
+      setChatMessages([
+        ...chatMessages,
         {
           createdAt: new Date(),
           event: {
@@ -113,7 +122,7 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
       socket.off("SocketUserLeaveEvent", SocketUserLeaveEventHandler)
       socket.off("SocketPartyCreateEvent", SocketPartyCreateEventHandler)
     }
-  }, [members, chatEvents, leaderId])
+  }, [members, chatMessages, leaderId])
 
   useEffect(() => {
     const SocketPartyDestroyEventHandler = (_: SocketPartyDestroyEvent) => {
@@ -124,6 +133,45 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
       socket.off("SocketPartyDestroyEvent", SocketPartyDestroyEventHandler)
     }
   }, [])
+
+  useEffect(() => {
+    const SocketChangeTeamHandler = (event: SocketChangeTeamEvent) => {
+      const _teams = { ...teams }
+      let teamChanged = false
+      if (event.team === "red") {
+        _teams.blue.delete(event.user.id)
+        if (!_teams.red.has(event.user.id)) {
+          teamChanged = true
+          _teams.red.set(event.user.id, event.user)
+        }
+      } else if (event.team === "blue") {
+        _teams.red.delete(event.user.id)
+        if (!_teams.blue.has(event.user.id)) {
+          teamChanged = true
+          _teams.blue.set(event.user.id, event.user)
+        }
+      }
+      if (teamChanged) {
+        setChatMessages([
+          ...chatMessages,
+          {
+            createdAt: new Date(),
+            event: {
+              type: "ChangeTeamEvent",
+              ...event,
+            },
+          },
+        ])
+      }
+      setTeams(_teams)
+    }
+
+    socket.on("SocketChangeTeamEvent", SocketChangeTeamHandler)
+
+    return () => {
+      socket.off("SocketChangeTeamEvent", SocketChangeTeamHandler)
+    }
+  }, [teams, chatMessages])
 
   if (gameDestroyed) return <div>Game destroyed</div>
 
@@ -145,10 +193,52 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
           <div key={idx}>{member.name}</div>
         ))}
       </div>
+      <div>
+        <div>
+          <div>Team Red:</div>
+          <TeamMembers team={teams.red} />
+          <button
+            onClick={() => {
+              const event: SocketChangeTeamEvent = {
+                team: "red",
+                user: {
+                  id: user.id,
+                  name: user.name ?? "",
+                  image: user.image ?? null,
+                },
+              }
+              socket.emit("SocketChangeTeamEvent", event)
+            }}
+            className="border bg-red-300"
+          >
+            Join Red Team
+          </button>
+        </div>
+        <div>
+          <div>Team Blue:</div>
+          <TeamMembers team={teams.blue} />
+          <button
+            onClick={() => {
+              const event: SocketChangeTeamEvent = {
+                team: "blue",
+                user: {
+                  id: user.id,
+                  name: user.name ?? "",
+                  image: user.image ?? null,
+                },
+              }
+              socket.emit("SocketChangeTeamEvent", event)
+            }}
+            className="border bg-blue-300"
+          >
+            Join Blue Team
+          </button>
+        </div>
+      </div>
       <DrawingCanvas />
       <div>
         Chat:
-        <ChatMessages chatEvents={chatEvents} />
+        <ChatMessages chatEvents={chatMessages} />
         <input className="border" type="text" ref={chatBoxRef} />
         <button
           onClick={() => {
@@ -201,7 +291,25 @@ function Message({ message }: { message: ChatMessage }) {
     return <div>{message.event.user.name} left the party</div>
   }
 
+  if (message.event.type === "ChangeTeamEvent") {
+    return (
+      <div>
+        {message.event.user.name} joined the {message.event.team} team.
+      </div>
+    )
+  }
+
   return null
+}
+
+function TeamMembers({ team }: { team: Map<string, SimpleUser> }) {
+  return (
+    <div>
+      {Array.from(team.values()).map((user, idx) => (
+        <div key={idx}>{user.name}</div>
+      ))}
+    </div>
+  )
 }
 
 function ChatMessages({ chatEvents }: { chatEvents: ChatMessage[] }) {
