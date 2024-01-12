@@ -1,5 +1,7 @@
 import { db } from "@/server/db"
+import { sleep } from "@/server/utils"
 import type {
+  SocketChangeGameStateEvent,
   SocketChangeTeamEvent,
   SocketChatEvent,
   SocketDrawEvent,
@@ -232,6 +234,32 @@ io.on("connection", (socket) => {
     })
 
     console.log("SocketChangeTeamEvent")
+  })
+
+  socket.on("SocketStartGameEvent", async () => {
+    const userId = socketUserMap.get(socket.id)
+    if (!userId) return
+    const partyId = userPartyMap.get(userId)
+    if (!partyId) return
+
+    let emitEvent: SocketChangeGameStateEvent = {
+      state: "TOSS",
+    }
+    io.to(partyId).emit("SocketChangeGameStateEvent", emitEvent)
+
+    await sleep(5000)
+
+    const toDrawTeam = Math.random() > 0.5 ? "red" : "blue"
+    if (toDrawTeam === "red") {
+      emitEvent = {
+        state: "TEAM_RED_TO_DRAW",
+      }
+    } else {
+      emitEvent = {
+        state: "TEAM_BLUE_TO_DRAW",
+      }
+    }
+    io.to(partyId).emit("SocketChangeGameStateEvent", emitEvent)
   })
 })
 

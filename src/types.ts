@@ -70,3 +70,20 @@ export type SimpleUser = {
   name: string
   image: string | null
 }
+
+export type GameState =
+  | "LOBBY"
+  | "TOSS"
+  | "TEAM_RED_TO_DRAW"
+  | "TEAM_RED_DRAWING"
+  | "TEAM_RED_TIME_UP"
+  | "TEAM_RED_CORRECT"
+  | "TEAM_BLUE_TO_DRAW"
+  | "TEAM_BLUE_DRAWING"
+  | "TEAM_BLUE_TIME_UP"
+  | "TEAM_BLUE_CORRECT"
+  | "GAME_OVER"
+
+export type SocketChangeGameStateEvent = {
+  state: GameState
+}

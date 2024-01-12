@@ -1,6 +1,8 @@
 "use client"
 
 import type {
+  GameState,
+  SocketChangeGameStateEvent,
   ChatMessage,
   SimpleUser,
   SocketChangeTeamEvent,
@@ -33,6 +35,8 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
     red: new Map(),
     blue: new Map(),
   })
+
+  const [gameState, setGameState] = useState<GameState>("LOBBY")
 
   useEffect(() => {
     socket.emit("SocketIdentify", user.id)
@@ -173,11 +177,24 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
     }
   }, [teams, chatMessages])
 
+  useEffect(() => {
+    const SocketChangeGameStateHandler = (
+      event: SocketChangeGameStateEvent,
+    ) => {
+      setGameState(event.state)
+    }
+    socket.on("SocketChangeGameStateEvent", SocketChangeGameStateHandler)
+    return () => {
+      socket.off("SocketChangeGameStateEvent", SocketChangeGameStateHandler)
+    }
+  })
+
   if (gameDestroyed) return <div>Game destroyed</div>
 
   return (
     <div className="ml-20">
       Game
+      <div>Game State : {gameState}</div>
       <div>Party {partyId}</div>
       <div>
         {user.id === leaderId ? "You are the leader" : "You are a member"}
@@ -234,6 +251,16 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
             Join Blue Team
           </button>
         </div>
+      </div>
+      <div>
+        {leaderId === user.id && gameState === "LOBBY" ? (
+          <button
+            onClick={() => socket.emit("SocketStartGameEvent")}
+            className="border bg-green-300"
+          >
+            Start Game
+          </button>
+        ) : null}
       </div>
       <DrawingCanvas />
       <div>
