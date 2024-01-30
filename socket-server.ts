@@ -263,4 +263,5 @@ io.on("connection", (socket) => {
   })
 })
 
+console.log("Listening on port 3001")
 io.listen(3001)
