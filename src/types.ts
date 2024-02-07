@@ -74,16 +74,37 @@ export type SimpleUser = {
 export type GameState =
   | "LOBBY"
   | "TOSS"
-  | "TEAM_RED_TO_DRAW"
-  | "TEAM_RED_DRAWING"
-  | "TEAM_RED_TIME_UP"
-  | "TEAM_RED_CORRECT"
-  | "TEAM_BLUE_TO_DRAW"
-  | "TEAM_BLUE_DRAWING"
-  | "TEAM_BLUE_TIME_UP"
-  | "TEAM_BLUE_CORRECT"
-  | "GAME_OVER"
+  | "ROUND_CHANGE"
+  | "GUESS_TIMEOUT"
+  | "GUESS_CORRECT"
 
-export type SocketChangeGameStateEvent = {
-  state: GameState
+export type SocketChangeGameStateEvent =
+  | {
+      state: "LOBBY"
+    }
+  | {
+      state: "TOSS"
+    }
+  | {
+      state: "ROUND_CHANGE"
+      round: number
+      drawingTeam: "red" | "blue"
+      drawingUserId: string
+      timeToGuess: number
+    }
+  | {
+      state: "GUESS_TIMEOUT"
+      word: string
+    }
+  | {
+      state: "GUESS_CORRECT"
+      word: string
+      guesserId: string
+    }
+  | {
+      state: "GAME_OVER"
+    }
+
+export type SocketGuessEvent = {
+  guess: string
 }

@@ -36,7 +36,8 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
     blue: new Map(),
   })
 
-  const [gameState, setGameState] = useState<GameState>("LOBBY")
+  const [gameStateEvent, setGameStateEvent] =
+    useState<SocketChangeGameStateEvent>({ state: "LOBBY" })
 
   useEffect(() => {
     socket.emit("SocketIdentify", user.id)
@@ -181,7 +182,7 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
     const SocketChangeGameStateHandler = (
       event: SocketChangeGameStateEvent,
     ) => {
-      setGameState(event.state)
+      setGameStateEvent(event)
     }
     socket.on("SocketChangeGameStateEvent", SocketChangeGameStateHandler)
     return () => {
@@ -194,7 +195,21 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
   return (
     <div className="flex flex-col items-center border">
       <div>Game</div>
-      <div>Game State : {gameState}</div>
+      {gameStateEvent.state === "LOBBY" ? (
+        <div>LOBBY</div>
+      ) : gameStateEvent.state === "TOSS" ? (
+        <div>Toss</div>
+      ) : gameStateEvent.state === "ROUND_CHANGE" ? (
+        <div>
+          <div>Round : {gameStateEvent.round}</div>
+          <div>Drawing Team : {gameStateEvent.drawingTeam}</div>
+          <div>Time : {gameStateEvent.timeToGuess}</div>
+        </div>
+      ) : gameStateEvent.state === "GUESS_TIMEOUT" ? (
+        <div>Guess Timeout</div>
+      ) : gameStateEvent.state === "GAME_OVER" ? (
+        <div>Game Over</div>
+      ) : null}
       <div>Party {partyId}</div>
       <div>
         {user.id === leaderId ? "You are the leader" : "You are a member"}
@@ -256,7 +271,7 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
         </div>
       </div>
       <div>
-        {leaderId === user.id && gameState === "LOBBY" ? (
+        {leaderId === user.id && gameStateEvent.state === "LOBBY" ? (
           <button
             onClick={() => socket.emit("SocketStartGameEvent")}
             className="border bg-green-300"

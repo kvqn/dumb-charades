@@ -6,6 +6,7 @@ import type {
   SocketChatEvent,
   SocketDrawEvent,
   SocketFinishDrawingEvent,
+  SocketGuessEvent,
   SocketPartyCreateEvent,
   SocketPartyDestroyEvent,
   SocketStartDrawingEvent,
@@ -21,7 +22,63 @@ const io = new Server({
 
 const userPartyMap = new Map<string, string>()
 const socketUserMap = new Map<string, string>()
-const partyTeams = new Map<string, { red: Set<string>; blue: Set<string> }>()
+const partyMap = new Map<
+  string,
+  {
+    leaderId: string
+    teams: { red: Set<string>; blue: Set<string> }
+    scores: { red: number; blue: number }
+    round: number
+    half: "FIRST" | "SECOND"
+    drawingTeam: "red" | "blue" | null
+    drawingUserId: string | null
+    currentWord: string | null
+  }
+>()
+
+const getParty = async (partyId: string) => {
+  if (partyMap.has(partyId)) return partyMap.get(partyId)!
+
+  const dbParty = await db.party.findUnique({
+    where: {
+      id: partyId,
+    },
+  })
+
+  if (!dbParty) return null
+
+  const party = {
+    leaderId: dbParty.leaderId,
+    teams: {
+      red: new Set<string>(),
+      blue: new Set<string>(),
+    },
+    scores: {
+      red: 0,
+      blue: 0,
+    },
+    round: 0,
+    half: "FIRST" as const,
+    drawingTeam: null,
+    drawingUserId: null,
+    currentWord: null,
+    guessed: false,
+  }
+
+  partyMap.set(partyId, party)
+
+  return party
+}
+
+const getUserAndParty = (socketId: string) => {
+  const userId = socketUserMap.get(socketId)
+  let partyId = undefined
+  if (userId) partyId = userPartyMap.get(userId)
+  return {
+    userId,
+    partyId,
+  }
+}
 
 io.on("connection", (socket) => {
   console.log("connected", socket.id)
@@ -203,22 +260,18 @@ io.on("connection", (socket) => {
     const partyId = userPartyMap.get(userId)
     if (!partyId) return
 
-    let teams
-    if (partyTeams.has(partyId)) {
-      teams = partyTeams.get(partyId)
-    } else {
-      teams = {
-        red: new Set<string>(),
-        blue: new Set<string>(),
-      }
-    }
+    const party = await getParty(partyId)
+    if (!party) return
+
     if (event.team === "red") {
-      teams?.blue.delete(userId)
-      teams?.red.add(userId)
+      party.teams.blue.delete(userId)
+      party.teams.red.add(userId)
     } else if (event.team === "blue") {
-      teams?.red.delete(userId)
-      teams?.blue.add(userId)
+      party.teams.red.delete(userId)
+      party.teams.blue.add(userId)
     }
+
+    partyMap.set(partyId, party)
 
     io.to(partyId).emit("SocketChangeTeamEvent", event)
     await db.event.create({
@@ -236,30 +289,103 @@ io.on("connection", (socket) => {
     console.log("SocketChangeTeamEvent")
   })
 
-  socket.on("SocketStartGameEvent", async () => {
-    const userId = socketUserMap.get(socket.id)
-    if (!userId) return
-    const partyId = userPartyMap.get(userId)
-    if (!partyId) return
+  const SocketRoundChangeEvent = async (partyId: string) => {
+    const party = partyMap.get(partyId)
+    if (!party) return
 
-    let emitEvent: SocketChangeGameStateEvent = {
-      state: "TOSS",
+    if (party.round == 0) {
+      party.round = 1
+      party.drawingTeam = Math.random() > 0.5 ? "red" : "blue"
+      party.half = "FIRST"
+    } else {
+      if (party.half == "FIRST") {
+        party.half = "SECOND"
+      } else {
+        party.half = "FIRST"
+        party.round++
+      }
+      party.drawingTeam = party.drawingTeam === "red" ? "blue" : "red"
     }
-    io.to(partyId).emit("SocketChangeGameStateEvent", emitEvent)
+
+    if (party.round == 6) {
+      io.to(partyId).emit("SocketChangeGameStateEvent", {
+        state: "GAME_OVER",
+      } as SocketChangeGameStateEvent)
+      return
+    }
+
+    if (party.drawingTeam === "red") {
+      party.drawingUserId = Array.from(party.teams.red).sort()[
+        party.round % party.teams.red.size
+      ]!
+    } else {
+      party.drawingUserId = Array.from(party.teams.blue).sort()[
+        party.round % party.teams.blue.size
+      ]!
+    }
+
+    party.currentWord = "apple"
+
+    const half = party.half
+    const round = party.round
+
+    partyMap.set(partyId, party)
+
+    io.to(partyId).emit("SocketChangeGameStateEvent", {
+      state: "ROUND_CHANGE",
+      round: party.round,
+      drawingTeam: party.drawingTeam,
+      drawingUserId: party.drawingUserId,
+      timeToGuess: 5000,
+    } as SocketChangeGameStateEvent)
 
     await sleep(5000)
 
-    const toDrawTeam = Math.random() > 0.5 ? "red" : "blue"
-    if (toDrawTeam === "red") {
-      emitEvent = {
-        state: "TEAM_RED_TO_DRAW",
-      }
-    } else {
-      emitEvent = {
-        state: "TEAM_BLUE_TO_DRAW",
-      }
+    const partyAfter = partyMap.get(partyId)!
+    if (partyAfter.round === round && partyAfter.half === half) {
+      io.to(partyId).emit("SocketChangeGameStateEvent", {
+        state: "GUESS_TIMEOUT",
+        word: party.currentWord,
+      } as SocketChangeGameStateEvent)
+      await sleep(3000)
+      await SocketRoundChangeEvent(partyId)
     }
-    io.to(partyId).emit("SocketChangeGameStateEvent", emitEvent)
+  }
+
+  socket.on("SocketGuess", async (event: SocketGuessEvent) => {
+    const { userId, partyId } = getUserAndParty(socket.id)
+    if (!userId || !partyId) return
+
+    const party = await getParty(partyId)
+    if (!party) return
+    if (!party.currentWord) return
+
+    if (event.guess == party.currentWord) {
+      io.to(partyId).emit("SocketChangeGameStateEvent", {
+        state: "GUESS_CORRECT",
+        word: party.currentWord,
+        guesserId: userId,
+      } as SocketChangeGameStateEvent)
+      await sleep(3000)
+      await SocketRoundChangeEvent(partyId)
+    }
+  })
+
+  socket.on("SocketStartGameEvent", async () => {
+    const { userId, partyId } = getUserAndParty(socket.id)
+    if (!userId || !partyId) return
+
+    // TODO: check if game hasn't already started
+    // TODO: check if user is party leader
+    // TODO: check if both teams have at least 1 user
+
+    io.to(partyId).emit("SocketChangeGameStateEvent", {
+      state: "TOSS",
+    } as SocketChangeGameStateEvent)
+
+    await sleep(5000)
+
+    await SocketRoundChangeEvent(partyId)
   })
 })
 

@@ -13,7 +13,7 @@ export function DrawingCanvas() {
   const contextRef = useRef<CanvasRenderingContext2D | null>(null)
   const [isDrawing, setIsDrawing] = useState(false)
 
-  const [isUserDrawing, setIsUserDrawing] = useState(true)
+  const [isUserDrawing, setIsUserDrawing] = useState(false)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -45,15 +45,28 @@ export function DrawingCanvas() {
     }
 
     socket.on("SocketStartDrawing", SocketStartDrawingHandler)
-
     socket.on("SocketDraw", SocketDrawHandler)
-
     socket.on("SocketFinishDrawing", SocketFinishDrawingHandler)
 
     return () => {
       socket.off("SocketStartDrawing", SocketStartDrawingHandler)
       socket.off("SocketDraw", SocketDrawHandler)
       socket.off("SocketFinishDrawing", SocketFinishDrawingHandler)
+    }
+  }, [])
+
+  useEffect(() => {
+    const SocketUserStartDrawingHandler = () => {
+      setIsUserDrawing(true)
+    }
+    const SocketUserStopDrawingHandler = () => {
+      setIsUserDrawing(false)
+    }
+    socket.on("SocketUserStartDrawing", SocketUserStartDrawingHandler)
+    socket.on("SocketUserStopDrawing", SocketUserStopDrawingHandler)
+    return () => {
+      socket.off("SocketUserStartDrawing", SocketUserStartDrawingHandler)
+      socket.off("SocketUserStopDrawing", SocketUserStopDrawingHandler)
     }
   }, [])
 
@@ -86,6 +99,7 @@ export function DrawingCanvas() {
       ref={canvasRef}
       className="h-[500px] w-[700px] border-4"
       onMouseDown={(event) => {
+        if (!isUserDrawing) return
         startDrawing(event.nativeEvent.offsetX, event.nativeEvent.offsetY)
         socket.emit("SocketStartDrawing", {
           x: event.nativeEvent.offsetX,
@@ -93,12 +107,14 @@ export function DrawingCanvas() {
         })
       }}
       onMouseMove={(event) => {
+        if (!isUserDrawing) return
         const x = event.nativeEvent.offsetX
         const y = event.nativeEvent.offsetY
         draw(event.nativeEvent.offsetX, event.nativeEvent.offsetY)
         socket.emit("SocketDraw", { x: x, y: y })
       }}
       onMouseUp={(event) => {
+        if (!isUserDrawing) return
         const x = event.nativeEvent.offsetX
         const y = event.nativeEvent.offsetY
         finishDrawing(event.nativeEvent.offsetX, event.nativeEvent.offsetY)
