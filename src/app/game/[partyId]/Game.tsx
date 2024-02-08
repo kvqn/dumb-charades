@@ -1,7 +1,6 @@
 "use client"
 
 import type {
-  GameState,
   SocketChangeGameStateEvent,
   ChatMessage,
   SimpleUser,
@@ -193,7 +192,7 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
   if (gameDestroyed) return <div>Game destroyed</div>
 
   return (
-    <div className="flex flex-col items-center border">
+    <div className="flex h-full w-full flex-col items-center border">
       <div>Game</div>
       {gameStateEvent.state === "LOBBY" ? (
         <div>LOBBY</div>
@@ -227,48 +226,33 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
           ))}
         </div>
       </div>
-      <div className="flex">
-        <div className="flex flex-col items-center">
-          <button
-            onClick={() => {
-              const event: SocketChangeTeamEvent = {
-                team: "red",
-                user: {
-                  id: user.id,
-                  name: user.name ?? "",
-                  image: user.image ?? null,
-                },
-              }
-              socket.emit("SocketChangeTeamEvent", event)
-            }}
-            className="border bg-red-300"
-          >
-            Join Red Team
-          </button>
-          <div className="font-bold">TEAM RED</div>
-          <TeamMembers team={teams.red} />
+      <div className="flex h-[500px] w-[1000px] border">
+        <div className="flex w-[20%] flex-col items-center">
+          <div className="h-1/2">
+            <div className="font-bold">TEAM RED</div>
+            <TeamMembers team={teams.red} />
+          </div>
+          <div className="h-1/2">
+            <div className="font-bold">TEAM BLUE</div>
+            <TeamMembers team={teams.blue} />
+          </div>
         </div>
-        <DrawingCanvas />
-        <div className="flex flex-col items-center">
-          <button
-            onClick={() => {
-              const event: SocketChangeTeamEvent = {
-                team: "blue",
-                user: {
-                  id: user.id,
-                  name: user.name ?? "",
-                  image: user.image ?? null,
-                },
-              }
-              socket.emit("SocketChangeTeamEvent", event)
-            }}
-            className="border bg-blue-300"
-          >
-            Join Blue Team
-          </button>
-          <div className="font-bold">TEAM BLUE</div>
-          <TeamMembers team={teams.blue} />
+        <div className="flex-grow border">
+          {gameStateEvent.state === "LOBBY" ? (
+            <div className="flex h-full w-full flex-col items-center justify-center">
+              <JoinRedTeamButton user={user} />
+              <JoinBlueTeamButton user={user} />
+            </div>
+          ) : (
+            <DrawingCanvas />
+          )}
         </div>
+        <ChatBox
+          chatMessages={chatMessages}
+          chatBoxRef={chatBoxRef}
+          user={user}
+        />
+        <div className="flex flex-col items-center"></div>
       </div>
       <div>
         {leaderId === user.id && gameStateEvent.state === "LOBBY" ? (
@@ -279,32 +263,6 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
             Start Game
           </button>
         ) : null}
-      </div>
-      <div>
-        Chat:
-        <ChatMessages chatEvents={chatMessages} />
-        <input className="border" type="text" ref={chatBoxRef} />
-        <button
-          onClick={() => {
-            async function _() {
-              if (chatBoxRef.current?.value) {
-                const message = chatBoxRef.current?.value
-                chatBoxRef.current.value = ""
-                const event: SocketChatEvent = {
-                  userId: user.id,
-                  name: user.name ?? "",
-                  image: user.image ?? null,
-                  message: message,
-                }
-                socket.emit("SocketChatEvent", event)
-                console.log("emited as socket", socket.id)
-              }
-            }
-            void _()
-          }}
-        >
-          Send
-        </button>
       </div>
     </div>
   )
@@ -356,14 +314,92 @@ function TeamMembers({ team }: { team: Map<string, SimpleUser> }) {
   )
 }
 
-function ChatMessages({ chatEvents }: { chatEvents: ChatMessage[] }) {
+function ChatBox({
+  chatMessages,
+  chatBoxRef,
+  user,
+}: {
+  chatMessages: ChatMessage[]
+  chatBoxRef: React.MutableRefObject<HTMLInputElement | null>
+  user: User
+}) {
   return (
-    <div>
-      {chatEvents.map((event, idx) => (
-        <div key={idx}>
-          <Message message={event} />
-        </div>
-      ))}
+    <div className="flex flex-col border p-2">
+      <div className="w-full p-2  text-center font-bold">CHAT</div>
+      <div className="flex-grow overflow-auto">
+        {chatMessages.map((event, idx) => (
+          <div key={idx}>
+            <Message message={event} />
+          </div>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <input className="border" type="text" ref={chatBoxRef} />
+        <button
+          className="bg-red-200"
+          onClick={() => {
+            async function _() {
+              if (chatBoxRef.current?.value) {
+                const message = chatBoxRef.current?.value
+                chatBoxRef.current.value = ""
+                const event: SocketChatEvent = {
+                  userId: user.id,
+                  name: user.name ?? "",
+                  image: user.image ?? null,
+                  message: message,
+                }
+                socket.emit("SocketChatEvent", event)
+                console.log("emitted as socket", socket.id)
+              }
+            }
+            void _()
+          }}
+        >
+          Send
+        </button>
+      </div>
     </div>
+  )
+}
+
+function JoinRedTeamButton({ user }: { user: User }) {
+  return (
+    <button
+      onClick={() => {
+        const event: SocketChangeTeamEvent = {
+          team: "red",
+          user: {
+            id: user.id,
+            name: user.name ?? "",
+            image: user.image ?? null,
+          },
+        }
+        socket.emit("SocketChangeTeamEvent", event)
+      }}
+      className="border bg-red-300"
+    >
+      Join Red Team
+    </button>
+  )
+}
+
+function JoinBlueTeamButton({ user }: { user: User }) {
+  return (
+    <button
+      onClick={() => {
+        const event: SocketChangeTeamEvent = {
+          team: "blue",
+          user: {
+            id: user.id,
+            name: user.name ?? "",
+            image: user.image ?? null,
+          },
+        }
+        socket.emit("SocketChangeTeamEvent", event)
+      }}
+      className="border bg-blue-300"
+    >
+      Join Blue Team
+    </button>
   )
 }
