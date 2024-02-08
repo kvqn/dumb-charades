@@ -97,7 +97,7 @@ export function DrawingCanvas() {
   return (
     <canvas
       ref={canvasRef}
-      className="border-4"
+      className="h-full  w-full border-4"
       onMouseDown={(event) => {
         if (!isUserDrawing) return
         startDrawing(event.nativeEvent.offsetX, event.nativeEvent.offsetY)

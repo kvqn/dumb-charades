@@ -17,6 +17,7 @@ import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 import { socket } from "@/client/socket"
 import { DrawingCanvas } from "./DrawingCanvas"
+import { ChangeAfterSomeTime } from "@/components/ShowAfterSomeTime"
 
 export function Game({ partyId, user }: { partyId: string; user: User }) {
   const [members, setMembers] = useState<Prisma.UserGetPayload<object>[]>([])
@@ -189,45 +190,19 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
     }
   })
 
+  const [prevRound, setPrevRound] = useState(0)
+
   if (gameDestroyed) return <div>Game destroyed</div>
 
   return (
     <div className="flex h-full w-full flex-col items-center border">
-      <div>Game</div>
-      {gameStateEvent.state === "LOBBY" ? (
-        <div>LOBBY</div>
-      ) : gameStateEvent.state === "TOSS" ? (
-        <div>Toss</div>
-      ) : gameStateEvent.state === "ROUND_CHANGE" ? (
-        <div>
-          <div>Round : {gameStateEvent.round}</div>
-          <div>Drawing Team : {gameStateEvent.drawingTeam}</div>
-          <div>Time : {gameStateEvent.timeToGuess}</div>
-        </div>
-      ) : gameStateEvent.state === "GUESS_TIMEOUT" ? (
-        <div>Guess Timeout</div>
-      ) : gameStateEvent.state === "GAME_OVER" ? (
-        <div>Game Over</div>
-      ) : null}
       <div>Party {partyId}</div>
       <div>
         {user.id === leaderId ? "You are the leader" : "You are a member"}
       </div>
-      <div>
-        {user.id === leaderId ? (
-          <Link href="/destroy">Destroy Party</Link>
-        ) : null}
-      </div>
-      <div>
-        Members:
-        <div className="flex">
-          {members.map((member, idx) => (
-            <div key={idx}>{member.name}</div>
-          ))}
-        </div>
-      </div>
+      <div>Round X of Y</div>
       <div className="flex h-[500px] w-[1000px] border">
-        <div className="flex w-[20%] flex-col items-center">
+        <div className="flex w-[200px] flex-col items-center">
           <div className="h-1/2">
             <div className="font-bold">TEAM RED</div>
             <TeamMembers team={teams.red} />
@@ -238,14 +213,12 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
           </div>
         </div>
         <div className="flex-grow border">
-          {gameStateEvent.state === "LOBBY" ? (
-            <div className="flex h-full w-full flex-col items-center justify-center">
-              <JoinRedTeamButton user={user} />
-              <JoinBlueTeamButton user={user} />
-            </div>
-          ) : (
-            <DrawingCanvas />
-          )}
+          <CenterBoard
+            gameStateEvent={gameStateEvent}
+            user={user}
+            prevRound={prevRound}
+            teams={teams}
+          />
         </div>
         <ChatBox
           chatMessages={chatMessages}
@@ -256,16 +229,90 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
       </div>
       <div>
         {leaderId === user.id && gameStateEvent.state === "LOBBY" ? (
-          <button
-            onClick={() => socket.emit("SocketStartGameEvent")}
-            className="border bg-green-300"
-          >
-            Start Game
-          </button>
+          <>
+            <button
+              onClick={() => socket.emit("SocketStartGameEvent")}
+              className="border bg-green-300"
+            >
+              Start Game
+            </button>
+            <Link href="/destroy">Destroy Party</Link>
+          </>
         ) : null}
       </div>
     </div>
   )
+}
+
+function CenterBoard({
+  gameStateEvent,
+  user,
+  prevRound,
+  teams,
+}: {
+  gameStateEvent: SocketChangeGameStateEvent
+  user: User
+  prevRound: number
+  teams: {
+    red: Map<string, SimpleUser>
+    blue: Map<string, SimpleUser>
+  }
+}) {
+  if (gameStateEvent.state === "LOBBY") {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center">
+        <JoinRedTeamButton user={user} />
+        <JoinBlueTeamButton user={user} />
+      </div>
+    )
+  }
+
+  if (gameStateEvent.state === "TOSS") {
+    return (
+      <div className="flex h-full w-full items-center justify-center">TOSS</div>
+    )
+  }
+
+  if (gameStateEvent.state === "ROUND_CHANGE") {
+    let user: SimpleUser
+    if (gameStateEvent.drawingTeam === "blue")
+      user = teams.blue.get(gameStateEvent.drawingUserId)!
+    else user = teams.red.get(gameStateEvent.drawingUserId)!
+    const team = gameStateEvent.drawingTeam === "red" ? "Red" : "Blue"
+    if (gameStateEvent.round === prevRound) {
+      return (
+        <div className="flex h-full w-full flex-col items-center justify-center">
+          <div>Drawing from Red Team</div>
+          <ChangeAfterSomeTime
+            ms={2000}
+            before={null}
+            after={<div>{JSON.stringify(user)}</div>}
+          />
+        </div>
+      )
+    } else {
+      return (
+        <div className="flex h-full w-full flex-col items-center justify-center overflow-hidden">
+          <ChangeAfterSomeTime
+            ms={2000}
+            before={<div>Round {gameStateEvent.round}</div>}
+            after={
+              <>
+                <div>Drawing from {team} Team</div>
+                <ChangeAfterSomeTime
+                  ms={2000}
+                  before={null}
+                  after={<div>{user ? user.name : null}</div>}
+                />
+              </>
+            }
+          />
+        </div>
+      )
+    }
+  }
+
+  return <DrawingCanvas />
 }
 
 function Message({ message }: { message: ChatMessage }) {
@@ -324,7 +371,7 @@ function ChatBox({
   user: User
 }) {
   return (
-    <div className="flex flex-col border p-2">
+    <div className="flex flex-shrink flex-col border p-2">
       <div className="w-full p-2  text-center font-bold">CHAT</div>
       <div className="flex-grow overflow-auto">
         {chatMessages.map((event, idx) => (
