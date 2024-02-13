@@ -108,3 +108,8 @@ export type SocketChangeGameStateEvent =
 export type SocketGuessEvent = {
   guess: string
 }
+
+export type SocketStartGameEvent = {
+  rounds: number
+  timeToGuess: number
+}

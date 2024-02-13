@@ -10,6 +10,7 @@ import type {
   SocketPartyCreateEvent,
   SocketPartyDestroyEvent,
   SocketStartDrawingEvent,
+  SocketStartGameEvent,
   SocketUserEnterEvent,
 } from "@/types"
 import { Server } from "socket.io"
@@ -33,6 +34,8 @@ const partyMap = new Map<
     drawingTeam: "red" | "blue" | null
     drawingUserId: string | null
     currentWord: string | null
+    rounds: number
+    timeToGuess: number
   }
 >()
 
@@ -63,6 +66,8 @@ const getParty = async (partyId: string) => {
     drawingUserId: null,
     currentWord: null,
     guessed: false,
+    rounds: 3,
+    timeToGuess: 10000,
   }
 
   partyMap.set(partyId, party)
@@ -307,7 +312,7 @@ io.on("connection", (socket) => {
       party.drawingTeam = party.drawingTeam === "red" ? "blue" : "red"
     }
 
-    if (party.round == 6) {
+    if (party.round >= party.rounds) {
       io.to(partyId).emit("SocketChangeGameStateEvent", {
         state: "GAME_OVER",
       } as SocketChangeGameStateEvent)
@@ -336,13 +341,13 @@ io.on("connection", (socket) => {
       round: party.round,
       drawingTeam: party.drawingTeam,
       drawingUserId: party.drawingUserId,
-      timeToGuess: 10000,
+      timeToGuess: party.timeToGuess,
     } as SocketChangeGameStateEvent)
 
     if (party.drawingUserId)
       io.to(party.drawingUserId).emit("SocketUserStartDrawing")
 
-    await sleep(10000)
+    await sleep(party.timeToGuess)
 
     const partyAfter = partyMap.get(partyId)!
     if (partyAfter.round === round && partyAfter.half === half) {
@@ -376,9 +381,19 @@ io.on("connection", (socket) => {
     }
   })
 
-  socket.on("SocketStartGameEvent", async () => {
+  socket.on("SocketStartGameEvent", async (event: SocketStartGameEvent) => {
     const { userId, partyId } = getUserAndParty(socket.id)
     if (!userId || !partyId) return
+
+    const party = await getParty(partyId)
+    if (!party) return
+
+    console.log(event)
+
+    party.rounds = event.rounds
+    party.timeToGuess = event.timeToGuess * 1000
+
+    partyMap.set(partyId, party)
 
     // TODO: check if game hasn't already started
     // TODO: check if user is party leader

@@ -10,6 +10,7 @@ import type {
   SocketPartyDestroyEvent,
   SocketUserEnterEvent,
   SocketUserLeaveEvent,
+  SocketStartGameEvent,
 } from "@/types"
 import { type Prisma } from "@prisma/client"
 import { type User } from "next-auth"
@@ -19,6 +20,7 @@ import { socket } from "@/client/socket"
 import { DrawingCanvas } from "./DrawingCanvas"
 import { ChangeAfterSomeTime } from "@/components/ShowAfterSomeTime"
 import { twMerge } from "tailwind-merge"
+import { Countdown } from "@/components/Countdown"
 
 export function Game({ partyId, user }: { partyId: string; user: User }) {
   const [members, setMembers] = useState<Prisma.UserGetPayload<object>[]>([])
@@ -291,19 +293,59 @@ function CenterBoard({
   }
   isLeader: boolean
 }) {
+  let rounds = 3
+  let timeToGuess = 30
+
   if (gameStateEvent.state === "LOBBY") {
     return (
-      <div className="flex h-full w-full flex-col items-center justify-between p-20">
-        <div className="flex gap-4">
+      <div className="flex h-full w-full flex-col items-center justify-between p-4">
+        <div className="flex gap-4 p-16">
           <JoinTeamButton team="red" user={user} />
           <JoinTeamButton team="blue" user={user} />
         </div>
         {isLeader ? (
-          <div className="flex max-h-[50%] w-full flex-grow flex-col items-center">
-            <div className="py-4 text-xl">Party Options</div>
+          <div className="mx-4 flex max-h-[50%] w-full flex-grow flex-col items-center justify-center gap-2 rounded-xl border-2 border-black bg-rose-50 text-lg">
+            <div className="text-2xl font-bold">Party Options</div>
+            <div className="flex items-center gap-4">
+              Rounds :
+              <select
+                className="rounded-xl border-2 border-black px-2 py-1"
+                onChange={(e) => {
+                  rounds = parseInt(e.target.value)
+                }}
+              >
+                <option>3</option>
+                <option>4</option>
+                <option>5</option>
+                <option>6</option>
+                <option>7</option>
+                <option>8</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-4">
+              Time to Guess (sec):
+              <select
+                className="rounded-xl border-2 border-black px-2 py-1"
+                onChange={(e) => {
+                  timeToGuess = parseInt(e.target.value)
+                }}
+              >
+                <option>30</option>
+                <option>45</option>
+                <option>60</option>
+                <option>75</option>
+                <option>90</option>
+              </select>
+            </div>
             <div className="flex gap-2">
               <button
-                onClick={() => socket.emit("SocketStartGameEvent")}
+                onClick={() => {
+                  const event: SocketStartGameEvent = {
+                    rounds: rounds,
+                    timeToGuess: timeToGuess,
+                  }
+                  socket.emit("SocketStartGameEvent", event)
+                }}
                 className="rounded-2xl border-2 border-black bg-green-300 px-4 py-2 hover:border-green-800 hover:bg-green-400"
               >
                 Start Game
@@ -372,7 +414,14 @@ function CenterBoard({
               />
             </div>
           }
-          after={<DrawingCanvas />}
+          after={
+            <div className="relative h-full w-full">
+              <div className="absolute right-2 top-2">
+                <Countdown seconds={gameStateEvent.timeToGuess / 1000} />
+              </div>
+              <DrawingCanvas />
+            </div>
+          }
         />
       )
     }
