@@ -1,3 +1,4 @@
+import { Navbar } from "@/components/Navbar"
 import "@/styles/globals.css"
 
 import { Inter } from "next/font/google"
@@ -20,7 +21,10 @@ export default async function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`font-sans ${inter.variable}`}>{children}</body>
+      <body className={`flex h-screen flex-col font-virgil ${inter.variable}`}>
+        <Navbar />
+        {children}
+      </body>
     </html>
   )
 }

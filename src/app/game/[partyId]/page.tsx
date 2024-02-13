@@ -41,9 +41,5 @@ export default async function Page({
     },
   })
 
-  return (
-    <div>
-      <Game partyId={party.id} user={session.user} />
-    </div>
-  )
+  return <Game partyId={party.id} user={session.user} />
 }

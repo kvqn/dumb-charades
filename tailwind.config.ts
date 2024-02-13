@@ -9,6 +9,9 @@ export default {
         sans: ["var(--font-sans)", ...fontFamily.sans],
       },
     },
+    fontFamily: {
+      virgil: ["Virgil", "sans-serif"],
+    },
   },
   plugins: [],
 } satisfies Config

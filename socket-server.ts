@@ -336,13 +336,18 @@ io.on("connection", (socket) => {
       round: party.round,
       drawingTeam: party.drawingTeam,
       drawingUserId: party.drawingUserId,
-      timeToGuess: 5000,
+      timeToGuess: 10000,
     } as SocketChangeGameStateEvent)
 
-    await sleep(5000)
+    if (party.drawingUserId)
+      io.to(party.drawingUserId).emit("SocketUserStartDrawing")
+
+    await sleep(10000)
 
     const partyAfter = partyMap.get(partyId)!
     if (partyAfter.round === round && partyAfter.half === half) {
+      if (partyAfter.drawingUserId)
+        io.to(partyAfter.drawingUserId).emit("SocketUserStopDrawing")
       io.to(partyId).emit("SocketChangeGameStateEvent", {
         state: "GUESS_TIMEOUT",
         word: party.currentWord,
