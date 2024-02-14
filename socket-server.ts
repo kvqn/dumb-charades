@@ -1,6 +1,9 @@
+import { getLeaderId } from "@/server/actions/getLeaderId"
 import { db } from "@/server/db"
 import { sleep } from "@/server/utils"
+import { type Word, getRandomWords } from "@/server/words"
 import type {
+  SocketAddPointsEvent,
   SocketChangeGameStateEvent,
   SocketChangeTeamEvent,
   SocketChatEvent,
@@ -12,8 +15,11 @@ import type {
   SocketStartDrawingEvent,
   SocketStartGameEvent,
   SocketUserEnterEvent,
+  SocketUserVoteWordEvent,
+  SocketVoteWordEvent,
 } from "@/types"
 import { Server } from "socket.io"
+import { z } from "zod"
 
 const io = new Server({
   cors: {
@@ -33,9 +39,12 @@ const partyMap = new Map<
     half: "FIRST" | "SECOND"
     drawingTeam: "red" | "blue" | null
     drawingUserId: string | null
-    currentWord: string | null
+    currentWord: Word | null
     rounds: number
     timeToGuess: number
+    category: "Gaming" | "Technology"
+    wordChoices: number
+    wordVotes: Map<string, Set<string>>
   }
 >()
 
@@ -68,6 +77,9 @@ const getParty = async (partyId: string) => {
     guessed: false,
     rounds: 3,
     timeToGuess: 10000,
+    category: "Gaming" as const,
+    wordChoices: 3,
+    wordVotes: new Map<string, Set<string>>(),
   }
 
   partyMap.set(partyId, party)
@@ -295,7 +307,7 @@ io.on("connection", (socket) => {
   })
 
   const SocketRoundChangeEvent = async (partyId: string) => {
-    const party = partyMap.get(partyId)
+    let party = partyMap.get(partyId)!
     if (!party) return
 
     if (party.round == 0) {
@@ -313,6 +325,23 @@ io.on("connection", (socket) => {
     }
 
     if (party.round >= party.rounds) {
+      await db.party.update({
+        where: {
+          id: partyId,
+        },
+        data: {
+          active: false,
+          Events: {
+            create: {
+              PartyDestroyEvent: {
+                create: {
+                  userId: null,
+                },
+              },
+            },
+          },
+        },
+      })
       io.to(partyId).emit("SocketChangeGameStateEvent", {
         state: "GAME_OVER",
       } as SocketChangeGameStateEvent)
@@ -329,20 +358,46 @@ io.on("connection", (socket) => {
       ]!
     }
 
-    party.currentWord = "apple"
+    party.wordVotes.clear()
+
+    const words = getRandomWords(party.category, party.wordChoices)
+
+    words.forEach((word) => {
+      party.wordVotes.set(word.word, new Set())
+    })
 
     const half = party.half
     const round = party.round
 
     partyMap.set(partyId, party)
 
-    io.to(partyId).emit("SocketChangeGameStateEvent", {
+    let emitEvent: SocketChangeGameStateEvent = {
       state: "ROUND_CHANGE",
       round: party.round,
       drawingTeam: party.drawingTeam,
       drawingUserId: party.drawingUserId,
+      words: words,
+    }
+
+    io.to(partyId).emit("SocketChangeGameStateEvent", emitEvent)
+
+    await sleep(10000)
+
+    party = partyMap.get(partyId)!
+
+    const word = Array.from(party.wordVotes.entries()).sort(
+      (a, b) => b[1].size - a[1].size,
+    )[0]![0]
+
+    party.currentWord = words.filter((w) => w.word === word)[0]!
+
+    emitEvent = {
+      state: "DRAWING",
+      word: party.currentWord,
       timeToGuess: party.timeToGuess,
-    } as SocketChangeGameStateEvent)
+    }
+
+    io.to(partyId).emit("SocketChangeGameStateEvent", emitEvent)
 
     Array.from(socketUserMap.entries())
       .filter((entry) => entry[1] === party.drawingUserId)
@@ -354,8 +409,8 @@ io.on("connection", (socket) => {
 
     await sleep(party.timeToGuess)
 
-    const partyAfter = partyMap.get(partyId)!
-    if (partyAfter.round === round && partyAfter.half === half) {
+    party = partyMap.get(partyId)!
+    if (party.round === round && party.half === half) {
       Array.from(socketUserMap.entries())
         .filter((entry) => entry[1] === party.drawingUserId)
         .map((entry) => entry[0])
@@ -365,7 +420,6 @@ io.on("connection", (socket) => {
         })
       io.to(partyId).emit("SocketChangeGameStateEvent", {
         state: "GUESS_TIMEOUT",
-        word: party.currentWord,
       } as SocketChangeGameStateEvent)
       await sleep(3000)
       await SocketRoundChangeEvent(partyId)
@@ -373,19 +427,28 @@ io.on("connection", (socket) => {
   }
 
   socket.on("SocketGuess", async (event: SocketGuessEvent) => {
+    console.log("aa")
     const { userId, partyId } = getUserAndParty(socket.id)
     if (!userId || !partyId) return
 
     const party = await getParty(partyId)
     if (!party) return
     if (!party.currentWord) return
+    console.log("bb")
 
-    if (event.guess == party.currentWord) {
+    if (event.guess.toLowerCase() == party.currentWord.word.toLowerCase()) {
+      console.log("cc")
       io.to(partyId).emit("SocketChangeGameStateEvent", {
         state: "GUESS_CORRECT",
-        word: party.currentWord,
         guesserId: userId,
       } as SocketChangeGameStateEvent)
+
+      const addPointsEvent: SocketAddPointsEvent = {
+        team: party.teams.red.has(userId) ? "red" : "blue",
+        userId: userId,
+        points: party.currentWord.points,
+      }
+      io.to(partyId).emit("SocketAddPointsEvent", addPointsEvent)
       await sleep(3000)
       await SocketRoundChangeEvent(partyId)
     }
@@ -400,8 +463,12 @@ io.on("connection", (socket) => {
 
     console.log(event)
 
+    // TODO: check socket data
+
     party.rounds = event.rounds
     party.timeToGuess = event.timeToGuess * 1000
+    party.category = z.enum(["Gaming", "Technology"]).parse(event.category)
+    party.wordChoices = event.wordChoices
 
     partyMap.set(partyId, party)
 
@@ -416,6 +483,30 @@ io.on("connection", (socket) => {
     await sleep(5000)
 
     await SocketRoundChangeEvent(partyId)
+  })
+
+  socket.on("SocketUserVoteWord", async (event: SocketUserVoteWordEvent) => {
+    const { userId, partyId } = getUserAndParty(socket.id)
+    if (!userId || !partyId) return
+
+    const party = await getParty(partyId)
+    if (!party) return
+
+    console.log("voting")
+
+    party.wordVotes.forEach((votes, word) => {
+      if (votes.has(userId)) votes.delete(userId)
+    })
+
+    if (!party.wordVotes.has(event.word))
+      party.wordVotes.set(event.word, new Set([userId]))
+    else party.wordVotes.get(event.word)!.add(userId)
+
+    const emitEvent: SocketVoteWordEvent = {
+      userId: userId,
+      word: event.word,
+    }
+    io.to(partyId).emit("SocketVoteWord", emitEvent)
   })
 })
 

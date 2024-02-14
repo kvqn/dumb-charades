@@ -1,7 +1,10 @@
 "use client"
 
 import { socket } from "@/client/socket"
+import { titleCase } from "@/client/utils"
+import { Coin } from "@/components/Coin"
 import { Countdown } from "@/components/Countdown"
+import { Word } from "@/server/words"
 import type {
   SocketDrawEvent,
   SocketFinishDrawingEvent,
@@ -12,13 +15,18 @@ import { useEffect, useRef, useState } from "react"
 export function DrawingCanvas({
   isUserDrawing,
   timeToGuess,
+  word,
+  knowsTheWord,
 }: {
   isUserDrawing: boolean
   timeToGuess: number
+  word: Word
+  knowsTheWord: boolean
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const contextRef = useRef<CanvasRenderingContext2D | null>(null)
   const [isDrawing, setIsDrawing] = useState(false)
+  const [hiddenWord, setHiddenWord] = useState("_".repeat(word.word.length))
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -88,6 +96,15 @@ export function DrawingCanvas({
     <div className="relative h-full w-full">
       <div className="absolute right-2 top-2">
         <Countdown seconds={timeToGuess} />
+      </div>
+      <div className="absolute top-2 w-full text-center">
+        {knowsTheWord || isUserDrawing ? titleCase(word.word) : hiddenWord}
+      </div>
+      <div className="absolute left-2 top-2 flex gap-2">
+        {word.points}
+        <div className="pt-[0.5px]">
+          <Coin />
+        </div>
       </div>
       <canvas
         ref={canvasRef}

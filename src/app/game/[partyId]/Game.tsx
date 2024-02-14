@@ -11,6 +11,10 @@ import type {
   SocketUserEnterEvent,
   SocketUserLeaveEvent,
   SocketStartGameEvent,
+  SocketVoteWordEvent,
+  SocketUserVoteWordEvent,
+  SocketGuessEvent,
+  SocketAddPointsEvent,
 } from "@/types"
 import { type Prisma } from "@prisma/client"
 import { type User } from "next-auth"
@@ -20,7 +24,10 @@ import { socket } from "@/client/socket"
 import { DrawingCanvas } from "./DrawingCanvas"
 import { ChangeAfterSomeTime } from "@/components/ShowAfterSomeTime"
 import { twMerge } from "tailwind-merge"
-import { Countdown } from "@/components/Countdown"
+import { type Word } from "@/server/words"
+import { UserImage } from "@/components/UserImage"
+import { titleCase } from "@/client/utils"
+import { Coin } from "@/components/Coin"
 
 export function Game({ partyId, user }: { partyId: string; user: User }) {
   const [members, setMembers] = useState<Prisma.UserGetPayload<object>[]>([])
@@ -40,6 +47,12 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
   })
 
   const [isLeader, setIsLeader] = useState(false)
+  const [drawingUserId, setDrawingUserId] = useState<string | undefined>(
+    undefined,
+  )
+  const [drawingTeam, setDrawingTeam] = useState<"red" | "blue" | undefined>(
+    undefined,
+  )
 
   useEffect(() => {
     setIsLeader(user.id === leaderId)
@@ -192,12 +205,19 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
       event: SocketChangeGameStateEvent,
     ) => {
       setGameStateEvent(event)
+      if (event.state === "ROUND_CHANGE") {
+        setDrawingUserId(event.drawingUserId)
+        setDrawingTeam(event.drawingTeam)
+      } else if (event.state != "DRAWING") {
+        setDrawingUserId(undefined)
+        setDrawingTeam(undefined)
+      }
     }
     socket.on("SocketChangeGameStateEvent", SocketChangeGameStateHandler)
     return () => {
       socket.off("SocketChangeGameStateEvent", SocketChangeGameStateHandler)
     }
-  })
+  }, [gameStateEvent, drawingUserId, drawingTeam, teams])
 
   const [prevRound, setPrevRound] = useState(0)
 
@@ -213,14 +233,7 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
         className="flex h-[500px] overflow-hidden rounded-xl border-4 border-black"
       >
         <div className="flex w-[200px] flex-col items-center">
-          <LeftBoard
-            teams={teams}
-            drawingUserId={
-              gameStateEvent.state === "ROUND_CHANGE"
-                ? gameStateEvent.drawingUserId
-                : undefined
-            }
-          />
+          <LeftBoard teams={teams} drawingUserId={drawingUserId} />
         </div>
         <div className="h-[500px] w-[700px] flex-grow border-x-4 border-black bg-white">
           <CenterBoard
@@ -229,6 +242,8 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
             prevRound={prevRound}
             teams={teams}
             isLeader={isLeader}
+            drawingUserId={drawingUserId}
+            drawingTeam={drawingTeam}
           />
         </div>
         <ChatBox
@@ -249,13 +264,37 @@ function LeftBoard({
   teams: { red: Map<string, SimpleUser>; blue: Map<string, SimpleUser> }
   drawingUserId?: string
 }) {
+  const [teamPoints, setTeamPoints] = useState({ red: 0, blue: 0 })
+
+  useEffect(() => {
+    const SocketAddPointsHandler = (event: SocketAddPointsEvent) => {
+      const newTeamPoints = teamPoints
+      if (event.team === "red") {
+        newTeamPoints.red += event.points
+      } else {
+        newTeamPoints.blue += event.points
+      }
+      setTeamPoints(newTeamPoints)
+    }
+    socket.on("SocketAddPointsEvent", SocketAddPointsHandler)
+    return () => {
+      socket.off("SocketAddPointsEvent", SocketAddPointsHandler)
+    }
+  }, [teamPoints])
+
+  console.log(teams)
   return (
     <div className="flex h-full w-full flex-col gap-4 bg-lime-50 p-4">
       <div className="flex h-1/2 w-full flex-col rounded-xl border-4 border-black bg-red-300">
-        <div className="p-2 text-center font-bold">TEAM RED</div>
+        <div className="pt-2 text-center font-bold">TEAM RED</div>
+        <div className="flex w-full justify-center gap-1 text-xs">
+          {teamPoints.red}
+          <Coin width={12} height={12} />
+        </div>
         <div className="flex flex-col items-center">
           {Array.from(teams.red.values()).map((user, idx) => (
             <div key={idx} className="flex gap-2">
+              <UserImage src={user.image} />
               <div>{user.name}</div>
               {drawingUserId === user.id ? <div>(drawing)</div> : null}
             </div>
@@ -263,11 +302,18 @@ function LeftBoard({
         </div>
       </div>
       <div className="flex h-1/2 w-full flex-col rounded-xl border-4 border-black bg-blue-300">
-        <div className="p-2 text-center font-bold">TEAM BLUE</div>
-        <div className="flex flex-col items-center">
+        <div className="pt-2 text-center font-bold">TEAM BLUE</div>
+        <div className="flex w-full justify-center gap-1 text-xs">
+          {teamPoints.blue}
+          <Coin width={12} height={12} />
+        </div>
+        <div className="flex flex-col items-center overflow-hidden">
           {Array.from(teams.blue.values()).map((user, idx) => (
-            <div key={idx} className="flex">
-              <div>{user.name}</div>
+            <div key={idx} className="flex w-full gap-2 px-2">
+              <UserImage src={user.image} />
+              <div className="overflow-hidden text-ellipsis text-nowrap">
+                {user.name}
+              </div>
               {drawingUserId === user.id ? <div>(drawing)</div> : null}
             </div>
           ))}
@@ -283,6 +329,8 @@ function CenterBoard({
   prevRound,
   teams,
   isLeader,
+  drawingUserId,
+  drawingTeam,
 }: {
   gameStateEvent: SocketChangeGameStateEvent
   user: User
@@ -292,9 +340,15 @@ function CenterBoard({
     blue: Map<string, SimpleUser>
   }
   isLeader: boolean
+  drawingUserId?: string
+  drawingTeam?: "red" | "blue"
 }) {
   let rounds = 3
   let timeToGuess = 30
+  let category = "Gaming"
+  let choices = 3
+
+  const userTeam = teams.red.has(user.id) ? "red" : "blue"
 
   const [isUserDrawing, setIsUserDrawing] = useState(false)
 
@@ -317,43 +371,70 @@ function CenterBoard({
   if (gameStateEvent.state === "LOBBY") {
     return (
       <div className="flex h-full w-full flex-col items-center justify-between p-4">
-        <div className="flex gap-4 p-16">
+        <div className="flex flex-grow flex-col items-center justify-center gap-4 p-16">
           <JoinTeamButton team="red" user={user} />
           <JoinTeamButton team="blue" user={user} />
         </div>
         {isLeader ? (
           <div className="mx-4 flex max-h-[50%] w-full flex-grow flex-col items-center justify-center gap-2 rounded-xl border-2 border-black bg-rose-50 text-lg">
             <div className="text-2xl font-bold">Party Options</div>
-            <div className="flex items-center gap-4">
-              Rounds :
-              <select
-                className="rounded-xl border-2 border-black px-2 py-1"
-                onChange={(e) => {
-                  rounds = parseInt(e.target.value)
-                }}
-              >
-                <option>3</option>
-                <option>4</option>
-                <option>5</option>
-                <option>6</option>
-                <option>7</option>
-                <option>8</option>
-              </select>
-            </div>
-            <div className="flex items-center gap-4">
-              Time to Guess (sec):
-              <select
-                className="rounded-xl border-2 border-black px-2 py-1"
-                onChange={(e) => {
-                  timeToGuess = parseInt(e.target.value)
-                }}
-              >
-                <option>30</option>
-                <option>45</option>
-                <option>60</option>
-                <option>75</option>
-                <option>90</option>
-              </select>
+            <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2">
+              <div className="flex items-center gap-4">
+                Rounds :
+                <select
+                  className="rounded-xl border-2 border-black px-2 py-1"
+                  onChange={(e) => {
+                    rounds = parseInt(e.target.value)
+                  }}
+                >
+                  <option>3</option>
+                  <option>4</option>
+                  <option>5</option>
+                  <option>6</option>
+                  <option>7</option>
+                  <option>8</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-4">
+                Time to Guess (sec):
+                <select
+                  className="rounded-xl border-2 border-black px-2 py-1"
+                  onChange={(e) => {
+                    timeToGuess = parseInt(e.target.value)
+                  }}
+                >
+                  <option>30</option>
+                  <option>45</option>
+                  <option>60</option>
+                  <option>75</option>
+                  <option>90</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-4">
+                Category :
+                <select
+                  className="rounded-xl border-2 border-black px-2 py-1"
+                  onChange={(e) => {
+                    category = e.target.value
+                  }}
+                >
+                  <option>Gaming</option>
+                  <option>Technology</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-4">
+                Choices :
+                <select
+                  className="rounded-xl border-2 border-black px-2 py-1"
+                  onChange={(e) => {
+                    choices = parseInt(e.target.value)
+                  }}
+                >
+                  <option>3</option>
+                  <option>4</option>
+                  <option>5</option>
+                </select>
+              </div>
             </div>
             <div className="flex gap-2">
               <button
@@ -361,6 +442,8 @@ function CenterBoard({
                   const event: SocketStartGameEvent = {
                     rounds: rounds,
                     timeToGuess: timeToGuess,
+                    category: category,
+                    wordChoices: choices,
                   }
                   socket.emit("SocketStartGameEvent", event)
                 }}
@@ -408,9 +491,11 @@ function CenterBoard({
             </div>
           }
           after={
-            <DrawingCanvas
-              isUserDrawing={isUserDrawing}
-              timeToGuess={gameStateEvent.timeToGuess / 1000}
+            <Voting
+              teams={teams}
+              words={gameStateEvent.words}
+              isVoting={userTeam != gameStateEvent.drawingTeam}
+              userTeam={userTeam}
             />
           }
         />
@@ -438,14 +523,27 @@ function CenterBoard({
             </div>
           }
           after={
-            <DrawingCanvas
-              isUserDrawing={isUserDrawing}
-              timeToGuess={gameStateEvent.timeToGuess / 1000}
+            <Voting
+              teams={teams}
+              words={gameStateEvent.words}
+              isVoting={userTeam != gameStateEvent.drawingTeam}
+              userTeam={userTeam}
             />
           }
         />
       )
     }
+  }
+
+  if (gameStateEvent.state === "DRAWING") {
+    return (
+      <DrawingCanvas
+        word={gameStateEvent.word}
+        isUserDrawing={isUserDrawing}
+        timeToGuess={gameStateEvent.timeToGuess / 1000}
+        knowsTheWord={userTeam != drawingTeam}
+      />
+    )
   }
 
   if (gameStateEvent.state === "GAME_OVER") {
@@ -460,6 +558,17 @@ function CenterBoard({
     return (
       <div className="flex h-full w-full flex-col items-center justify-center">
         GUESS TIMEOUT
+      </div>
+    )
+  }
+
+  if (gameStateEvent.state === "GUESS_CORRECT") {
+    const guesser = teams.red.has(gameStateEvent.guesserId)
+      ? teams.red.get(gameStateEvent.guesserId)
+      : teams.blue.get(gameStateEvent.guesserId)
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        {guesser?.name ?? "???"} has guessed correctly!
       </div>
     )
   }
@@ -531,13 +640,17 @@ function ChatBox({
               if (chatBoxRef.current?.value) {
                 const message = chatBoxRef.current?.value
                 chatBoxRef.current.value = ""
-                const event: SocketChatEvent = {
+                const chatEvent: SocketChatEvent = {
                   userId: user.id,
                   name: user.name ?? "",
                   image: user.image ?? null,
                   message: message,
                 }
-                socket.emit("SocketChatEvent", event)
+                socket.emit("SocketChatEvent", chatEvent)
+                const guessEvent: SocketGuessEvent = {
+                  guess: message,
+                }
+                socket.emit("SocketGuess", guessEvent)
                 console.log("emitted as socket", socket.id)
               }
             }
@@ -570,7 +683,88 @@ function JoinTeamButton({ team, user }: { team: "red" | "blue"; user: User }) {
           "bg-blue-300 hover:border-blue-800 hover:bg-blue-400",
       )}
     >
-      Join Red Team
+      Join {titleCase(team)} Team
     </button>
+  )
+}
+
+function Voting({
+  words,
+  isVoting,
+  teams,
+  userTeam,
+}: {
+  words: Word[]
+  isVoting: boolean
+  teams: { red: Map<string, SimpleUser>; blue: Map<string, SimpleUser> }
+  userTeam: "red" | "blue"
+}) {
+  const [_words, setWords] = useState<
+    { points: number; word: string; votes: Set<string> }[]
+  >(words.map((word) => ({ ...word, votes: new Set<string>() })))
+  const [renders, rerender] = useState(0)
+
+  useEffect(() => {
+    const SocketVoteWordHandler = (event: SocketVoteWordEvent) => {
+      console.log("SocketVoteWord", event)
+      const newWords = _words
+      newWords.forEach((word) => {
+        if (word.votes.has(event.userId)) word.votes.delete(event.userId)
+      })
+      newWords.forEach((word) => {
+        if (word.word === event.word) word.votes.add(event.userId)
+      })
+      setWords(newWords)
+      rerender(renders + 1)
+    }
+    socket.on("SocketVoteWord", SocketVoteWordHandler)
+
+    return () => {
+      socket.off("SocketVoteWord", SocketVoteWordHandler)
+    }
+  }, [_words, renders])
+
+  if (!isVoting)
+    return (
+      <div className="flex h-full w-full items-center justify-center text-xl">
+        {userTeam === "red" ? "Blue" : "Red"} team is voting
+      </div>
+    )
+
+  return (
+    <div className="flex h-full w-full flex-col justify-center gap-2 bg-blue-100">
+      <div className="w-full text-center">Voting</div>
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        {_words.map((word, idx) => (
+          <div
+            key={idx}
+            className="relative flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-black bg-white px-4 py-2 hover:bg-slate-100"
+            onClick={() => {
+              const emitEvent: SocketUserVoteWordEvent = {
+                word: word.word,
+              }
+              socket.emit("SocketUserVoteWord", emitEvent)
+            }}
+          >
+            <div>{word.word}</div>
+            <div className="flex gap-2 text-xs">
+              <div>{word.points}</div>
+              <Coin />
+            </div>
+            <div className="absolute -bottom-2 left-2 flex gap-1">
+              {Array.from(word.votes)
+                .map((userId) =>
+                  teams.red.has(userId)
+                    ? teams.red.get(userId)!.image
+                    : teams.blue.get(userId)?.image,
+                )
+                .map((image) => (
+                  <UserImage src={image} key={image} />
+                ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }

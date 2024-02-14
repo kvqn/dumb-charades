@@ -1,4 +1,5 @@
 import { type Prisma } from "@prisma/client"
+import { type Word } from "./server/words"
 
 export type SocketChatEvent = {
   userId: string
@@ -90,15 +91,18 @@ export type SocketChangeGameStateEvent =
       round: number
       drawingTeam: "red" | "blue"
       drawingUserId: string
+      words: Word[]
+    }
+  | {
+      state: "DRAWING"
+      word: Word
       timeToGuess: number
     }
   | {
       state: "GUESS_TIMEOUT"
-      word: string
     }
   | {
       state: "GUESS_CORRECT"
-      word: string
       guesserId: string
     }
   | {
@@ -112,4 +116,21 @@ export type SocketGuessEvent = {
 export type SocketStartGameEvent = {
   rounds: number
   timeToGuess: number
+  category: string
+  wordChoices: number
+}
+
+export type SocketUserVoteWordEvent = {
+  word: string
+}
+
+export type SocketVoteWordEvent = {
+  userId: string
+  word: string
+}
+
+export type SocketAddPointsEvent = {
+  team: "red" | "blue"
+  userId: string
+  points: number
 }
