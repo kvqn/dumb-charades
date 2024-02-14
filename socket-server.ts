@@ -374,6 +374,7 @@ io.on("connection", (socket) => {
     let emitEvent: SocketChangeGameStateEvent = {
       state: "ROUND_CHANGE",
       round: party.round,
+      rounds: party.rounds,
       drawingTeam: party.drawingTeam,
       drawingUserId: party.drawingUserId,
       words: words,

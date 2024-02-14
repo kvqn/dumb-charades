@@ -54,6 +54,8 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
     undefined,
   )
 
+  const [rounds, setRounds] = useState<number | undefined>(undefined)
+
   useEffect(() => {
     setIsLeader(user.id === leaderId)
   }, [user.id, leaderId])
@@ -200,18 +202,22 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
     }
   }, [teams, chatMessages])
 
+  const [round, setRound] = useState(0)
+
   useEffect(() => {
     const SocketChangeGameStateHandler = (
       event: SocketChangeGameStateEvent,
     ) => {
-      setGameStateEvent(event)
       if (event.state === "ROUND_CHANGE") {
         setDrawingUserId(event.drawingUserId)
         setDrawingTeam(event.drawingTeam)
+        setRounds(event.rounds)
+        setRound(event.round)
       } else if (event.state != "DRAWING") {
         setDrawingUserId(undefined)
         setDrawingTeam(undefined)
       }
+      setGameStateEvent(event)
     }
     socket.on("SocketChangeGameStateEvent", SocketChangeGameStateHandler)
     return () => {
@@ -219,27 +225,32 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
     }
   }, [gameStateEvent, drawingUserId, drawingTeam, teams])
 
-  const [prevRound, setPrevRound] = useState(0)
-
   if (gameDestroyed) return <div>Game destroyed</div>
 
   return (
     <div className="flex flex-grow select-none flex-col items-center justify-center">
       <div>Party {partyId}</div>
       {isLeader ? <div className="text-2xl">You are the leader</div> : null}
-      <div>Round X of Y</div>
+      {round && rounds ? (
+        <div>
+          Round {round} of {rounds}
+        </div>
+      ) : null}
       <div
         id="board"
         className="flex h-[500px] overflow-hidden rounded-xl border-4 border-black"
       >
         <div className="flex w-[200px] flex-col items-center">
-          <LeftBoard teams={teams} drawingUserId={drawingUserId} />
+          <LeftBoard
+            teams={teams}
+            drawingUserId={drawingUserId}
+            isLobby={gameStateEvent.state === "LOBBY"}
+          />
         </div>
         <div className="h-[500px] w-[700px] flex-grow border-x-4 border-black bg-white">
           <CenterBoard
             gameStateEvent={gameStateEvent}
             user={user}
-            prevRound={prevRound}
             teams={teams}
             isLeader={isLeader}
             drawingUserId={drawingUserId}
@@ -250,6 +261,7 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
           chatMessages={chatMessages}
           chatBoxRef={chatBoxRef}
           user={user}
+          teams={teams}
         />
         <div className="flex flex-col items-center"></div>
       </div>
@@ -260,9 +272,11 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
 function LeftBoard({
   teams,
   drawingUserId,
+  isLobby,
 }: {
   teams: { red: Map<string, SimpleUser>; blue: Map<string, SimpleUser> }
   drawingUserId?: string
+  isLobby: boolean
 }) {
   const [teamPoints, setTeamPoints] = useState({ red: 0, blue: 0 })
 
@@ -287,15 +301,19 @@ function LeftBoard({
     <div className="flex h-full w-full flex-col gap-4 bg-lime-50 p-4">
       <div className="flex h-1/2 w-full flex-col rounded-xl border-4 border-black bg-red-300">
         <div className="pt-2 text-center font-bold">TEAM RED</div>
-        <div className="flex w-full justify-center gap-1 text-xs">
-          {teamPoints.red}
-          <Coin width={12} height={12} />
-        </div>
+        {isLobby ? null : (
+          <div className="flex w-full justify-center gap-1 text-xs">
+            {teamPoints.red}
+            <Coin width={12} height={12} />
+          </div>
+        )}
         <div className="flex flex-col items-center">
           {Array.from(teams.red.values()).map((user, idx) => (
-            <div key={idx} className="flex gap-2">
+            <div key={idx} className="flex w-full justify-center gap-2 px-2">
               <UserImage src={user.image} />
-              <div>{user.name}</div>
+              <div className="overflow-hidden text-ellipsis text-nowrap">
+                {user.name}
+              </div>
               {drawingUserId === user.id ? <div>(drawing)</div> : null}
             </div>
           ))}
@@ -303,13 +321,15 @@ function LeftBoard({
       </div>
       <div className="flex h-1/2 w-full flex-col rounded-xl border-4 border-black bg-blue-300">
         <div className="pt-2 text-center font-bold">TEAM BLUE</div>
-        <div className="flex w-full justify-center gap-1 text-xs">
-          {teamPoints.blue}
-          <Coin width={12} height={12} />
-        </div>
+        {isLobby ? null : (
+          <div className="flex w-full justify-center gap-1 text-xs">
+            {teamPoints.blue}
+            <Coin width={12} height={12} />
+          </div>
+        )}
         <div className="flex flex-col items-center overflow-hidden">
           {Array.from(teams.blue.values()).map((user, idx) => (
-            <div key={idx} className="flex w-full gap-2 px-2">
+            <div key={idx} className="flex w-full justify-center gap-2 px-2">
               <UserImage src={user.image} />
               <div className="overflow-hidden text-ellipsis text-nowrap">
                 {user.name}
@@ -326,7 +346,6 @@ function LeftBoard({
 function CenterBoard({
   gameStateEvent,
   user,
-  prevRound,
   teams,
   isLeader,
   drawingUserId,
@@ -334,7 +353,6 @@ function CenterBoard({
 }: {
   gameStateEvent: SocketChangeGameStateEvent
   user: User
-  prevRound: number
   teams: {
     red: Map<string, SimpleUser>
     blue: Map<string, SimpleUser>
@@ -475,64 +493,29 @@ function CenterBoard({
     if (gameStateEvent.drawingTeam === "blue")
       user = teams.blue.get(gameStateEvent.drawingUserId)!
     else user = teams.red.get(gameStateEvent.drawingUserId)!
-    const team = gameStateEvent.drawingTeam === "red" ? "Red" : "Blue"
-    if (gameStateEvent.round === prevRound) {
-      return (
-        <ChangeAfterSomeTime
-          ms={4000}
-          before={
-            <div className="flex h-full w-full flex-col items-center justify-center">
-              <div>Drawing from Red Team</div>
-              <ChangeAfterSomeTime
-                ms={2000}
-                before={null}
-                after={<div>{JSON.stringify(user)}</div>}
-              />
-            </div>
-          }
-          after={
-            <Voting
-              teams={teams}
-              words={gameStateEvent.words}
-              isVoting={userTeam != gameStateEvent.drawingTeam}
-              userTeam={userTeam}
+    return (
+      <ChangeAfterSomeTime
+        ms={4000}
+        before={
+          <div className="flex h-full w-full flex-col items-center justify-center">
+            <div>Drawing from Red Team</div>
+            <ChangeAfterSomeTime
+              ms={2000}
+              before={null}
+              after={<div>{JSON.stringify(user)}</div>}
             />
-          }
-        />
-      )
-    } else {
-      return (
-        <ChangeAfterSomeTime
-          ms={6000}
-          before={
-            <div className="flex h-full w-full flex-col items-center justify-center overflow-hidden">
-              <ChangeAfterSomeTime
-                ms={2000}
-                before={<div>Round {gameStateEvent.round}</div>}
-                after={
-                  <>
-                    <div>Drawing from {team} Team</div>
-                    <ChangeAfterSomeTime
-                      ms={2000}
-                      before={null}
-                      after={<div>{user ? user.name : null}</div>}
-                    />
-                  </>
-                }
-              />
-            </div>
-          }
-          after={
-            <Voting
-              teams={teams}
-              words={gameStateEvent.words}
-              isVoting={userTeam != gameStateEvent.drawingTeam}
-              userTeam={userTeam}
-            />
-          }
-        />
-      )
-    }
+          </div>
+        }
+        after={
+          <Voting
+            teams={teams}
+            words={gameStateEvent.words}
+            isVoting={userTeam != gameStateEvent.drawingTeam}
+            userTeam={userTeam}
+          />
+        }
+      />
+    )
   }
 
   if (gameStateEvent.state === "DRAWING") {
@@ -574,10 +557,24 @@ function CenterBoard({
   }
 }
 
-function Message({ message }: { message: ChatMessage }) {
+function Message({
+  message,
+  teams,
+}: {
+  message: ChatMessage
+  teams: {
+    red: Map<string, SimpleUser>
+    blue: Map<string, SimpleUser>
+  }
+}) {
   if (message.event.type === "ChatEvent") {
     return (
-      <div>
+      <div
+        className={twMerge(
+          teams.blue.has(message.event.userId) && "text-blue-600",
+          teams.red.has(message.event.userId) && "text-red-600",
+        )}
+      >
         {message.event.name}: {message.event.message}
       </div>
     )
@@ -614,10 +611,15 @@ function ChatBox({
   chatMessages,
   chatBoxRef,
   user,
+  teams,
 }: {
   chatMessages: ChatMessage[]
   chatBoxRef: React.MutableRefObject<HTMLInputElement | null>
   user: User
+  teams: {
+    red: Map<string, SimpleUser>
+    blue: Map<string, SimpleUser>
+  }
 }) {
   return (
     <div className="flex flex-shrink flex-col bg-yellow-50 p-2">
@@ -625,7 +627,7 @@ function ChatBox({
       <div className="flex-grow overflow-auto">
         {chatMessages.map((event, idx) => (
           <div key={idx}>
-            <Message message={event} />
+            <Message message={event} teams={teams} />
           </div>
         ))}
       </div>

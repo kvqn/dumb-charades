@@ -89,6 +89,7 @@ export type SocketChangeGameStateEvent =
   | {
       state: "ROUND_CHANGE"
       round: number
+      rounds: number
       drawingTeam: "red" | "blue"
       drawingUserId: string
       words: Word[]
