@@ -344,15 +344,25 @@ io.on("connection", (socket) => {
       timeToGuess: party.timeToGuess,
     } as SocketChangeGameStateEvent)
 
-    if (party.drawingUserId)
-      io.to(party.drawingUserId).emit("SocketUserStartDrawing")
+    Array.from(socketUserMap.entries())
+      .filter((entry) => entry[1] === party.drawingUserId)
+      .map((entry) => entry[0])
+      .forEach((socketId) => {
+        console.log("start drawing", socketId)
+        io.to(socketId).emit("SocketUserStartDrawing")
+      })
 
     await sleep(party.timeToGuess)
 
     const partyAfter = partyMap.get(partyId)!
     if (partyAfter.round === round && partyAfter.half === half) {
-      if (partyAfter.drawingUserId)
-        io.to(partyAfter.drawingUserId).emit("SocketUserStopDrawing")
+      Array.from(socketUserMap.entries())
+        .filter((entry) => entry[1] === party.drawingUserId)
+        .map((entry) => entry[0])
+        .forEach((socketId) => {
+          console.log("start drawing", socketId)
+          io.to(socketId).emit("SocketUserStopDrawing")
+        })
       io.to(partyId).emit("SocketChangeGameStateEvent", {
         state: "GUESS_TIMEOUT",
         word: party.currentWord,

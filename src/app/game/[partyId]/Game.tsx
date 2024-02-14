@@ -204,7 +204,7 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
   if (gameDestroyed) return <div>Game destroyed</div>
 
   return (
-    <div className="flex flex-grow flex-col items-center justify-center">
+    <div className="flex flex-grow select-none flex-col items-center justify-center">
       <div>Party {partyId}</div>
       {isLeader ? <div className="text-2xl">You are the leader</div> : null}
       <div>Round X of Y</div>
@@ -295,6 +295,24 @@ function CenterBoard({
 }) {
   let rounds = 3
   let timeToGuess = 30
+
+  const [isUserDrawing, setIsUserDrawing] = useState(false)
+
+  useEffect(() => {
+    const SocketUserStartDrawingHandler = () => {
+      console.log("my turn to draw")
+      setIsUserDrawing(true)
+    }
+    const SocketUserStopDrawingHandler = () => {
+      setIsUserDrawing(false)
+    }
+    socket.on("SocketUserStartDrawing", SocketUserStartDrawingHandler)
+    socket.on("SocketUserStopDrawing", SocketUserStopDrawingHandler)
+    return () => {
+      socket.off("SocketUserStartDrawing", SocketUserStartDrawingHandler)
+      socket.off("SocketUserStopDrawing", SocketUserStopDrawingHandler)
+    }
+  }, [])
 
   if (gameStateEvent.state === "LOBBY") {
     return (
@@ -389,7 +407,12 @@ function CenterBoard({
               />
             </div>
           }
-          after={<DrawingCanvas />}
+          after={
+            <DrawingCanvas
+              isUserDrawing={isUserDrawing}
+              timeToGuess={gameStateEvent.timeToGuess / 1000}
+            />
+          }
         />
       )
     } else {
@@ -415,12 +438,10 @@ function CenterBoard({
             </div>
           }
           after={
-            <div className="relative h-full w-full">
-              <div className="absolute right-2 top-2">
-                <Countdown seconds={gameStateEvent.timeToGuess / 1000} />
-              </div>
-              <DrawingCanvas />
-            </div>
+            <DrawingCanvas
+              isUserDrawing={isUserDrawing}
+              timeToGuess={gameStateEvent.timeToGuess / 1000}
+            />
           }
         />
       )

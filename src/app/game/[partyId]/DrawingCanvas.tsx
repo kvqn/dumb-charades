@@ -1,6 +1,7 @@
 "use client"
 
 import { socket } from "@/client/socket"
+import { Countdown } from "@/components/Countdown"
 import type {
   SocketDrawEvent,
   SocketFinishDrawingEvent,
@@ -8,12 +9,16 @@ import type {
 } from "@/types"
 import { useEffect, useRef, useState } from "react"
 
-export function DrawingCanvas() {
+export function DrawingCanvas({
+  isUserDrawing,
+  timeToGuess,
+}: {
+  isUserDrawing: boolean
+  timeToGuess: number
+}) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const contextRef = useRef<CanvasRenderingContext2D | null>(null)
   const [isDrawing, setIsDrawing] = useState(false)
-
-  const [isUserDrawing, setIsUserDrawing] = useState(false)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -55,21 +60,6 @@ export function DrawingCanvas() {
     }
   }, [])
 
-  useEffect(() => {
-    const SocketUserStartDrawingHandler = () => {
-      setIsUserDrawing(true)
-    }
-    const SocketUserStopDrawingHandler = () => {
-      setIsUserDrawing(false)
-    }
-    socket.on("SocketUserStartDrawing", SocketUserStartDrawingHandler)
-    socket.on("SocketUserStopDrawing", SocketUserStopDrawingHandler)
-    return () => {
-      socket.off("SocketUserStartDrawing", SocketUserStartDrawingHandler)
-      socket.off("SocketUserStopDrawing", SocketUserStopDrawingHandler)
-    }
-  }, [])
-
   const startDrawing = (x: number, y: number) => {
     const context = contextRef.current
     if (!context) return
@@ -95,31 +85,36 @@ export function DrawingCanvas() {
   }
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="h-full  w-full border-4"
-      onMouseDown={(event) => {
-        if (!isUserDrawing) return
-        startDrawing(event.nativeEvent.offsetX, event.nativeEvent.offsetY)
-        socket.emit("SocketStartDrawing", {
-          x: event.nativeEvent.offsetX,
-          y: event.nativeEvent.offsetY,
-        })
-      }}
-      onMouseMove={(event) => {
-        if (!isUserDrawing) return
-        const x = event.nativeEvent.offsetX
-        const y = event.nativeEvent.offsetY
-        draw(event.nativeEvent.offsetX, event.nativeEvent.offsetY)
-        socket.emit("SocketDraw", { x: x, y: y })
-      }}
-      onMouseUp={(event) => {
-        if (!isUserDrawing) return
-        const x = event.nativeEvent.offsetX
-        const y = event.nativeEvent.offsetY
-        finishDrawing(event.nativeEvent.offsetX, event.nativeEvent.offsetY)
-        socket.emit("SocketFinishDrawing", { x: x, y: y })
-      }}
-    />
+    <div className="relative h-full w-full">
+      <div className="absolute right-2 top-2">
+        <Countdown seconds={timeToGuess} />
+      </div>
+      <canvas
+        ref={canvasRef}
+        className="h-full  w-full border-4"
+        onMouseDown={(event) => {
+          if (!isUserDrawing) return
+          startDrawing(event.nativeEvent.offsetX, event.nativeEvent.offsetY)
+          socket.emit("SocketStartDrawing", {
+            x: event.nativeEvent.offsetX,
+            y: event.nativeEvent.offsetY,
+          })
+        }}
+        onMouseMove={(event) => {
+          if (!isUserDrawing || !isDrawing) return
+          const x = event.nativeEvent.offsetX
+          const y = event.nativeEvent.offsetY
+          draw(event.nativeEvent.offsetX, event.nativeEvent.offsetY)
+          socket.emit("SocketDraw", { x: x, y: y })
+        }}
+        onMouseUp={(event) => {
+          if (!isUserDrawing) return
+          const x = event.nativeEvent.offsetX
+          const y = event.nativeEvent.offsetY
+          finishDrawing(event.nativeEvent.offsetX, event.nativeEvent.offsetY)
+          socket.emit("SocketFinishDrawing", { x: x, y: y })
+        }}
+      />
+    </div>
   )
 }
