@@ -1,3 +1,4 @@
+import { env } from "@/env"
 import { getLeaderId } from "@/server/actions/getLeaderId"
 import { db } from "@/server/db"
 import { sleep } from "@/server/utils"
@@ -23,7 +24,7 @@ import { z } from "zod"
 
 const io = new Server({
   cors: {
-    origin: "http://localhost:3000",
+    origin: env.NEXTAUTH_URL,
   },
 })
 
@@ -512,4 +513,4 @@ io.on("connection", (socket) => {
 })
 
 console.log("Listening on port 3001")
-io.listen(3001)
+io.listen(env.SOCKET_PORT)
