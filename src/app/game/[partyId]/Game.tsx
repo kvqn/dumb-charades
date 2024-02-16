@@ -28,6 +28,7 @@ import { type Word } from "@/server/words"
 import { UserImage } from "@/components/UserImage"
 import { titleCase } from "@/client/utils"
 import { Coin } from "@/components/Coin"
+import Head from "next/head"
 
 export function Game({ partyId, user }: { partyId: string; user: User }) {
   const [members, setMembers] = useState<Prisma.UserGetPayload<object>[]>([])
@@ -228,7 +229,7 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
   if (gameDestroyed) return <div>Game destroyed</div>
 
   return (
-    <div className="flex flex-grow select-none flex-col items-center justify-center">
+    <div className="flex flex-grow select-none flex-col items-center justify-center text-black">
       <div>Party {partyId}</div>
       {isLeader ? <div className="text-2xl">You are the leader</div> : null}
       {round && rounds ? (

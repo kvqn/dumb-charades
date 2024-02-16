@@ -7,9 +7,12 @@ export default async function Layout({
 }) {
   return (
     <html lang="en">
-      <body className="flex h-screen flex-col bg-teal-50 font-virgil">
-        <Navbar />
-        {children}
+      <link href="https://unpkg.com/pattern.css" rel="stylesheet"></link>
+      <body className="h-screen bg-teal-50 font-virgil">
+        <div className="pattern-dots-md flex h-full w-full flex-col text-gray-200">
+          <Navbar />
+          {children}
+        </div>
       </body>
     </html>
   )

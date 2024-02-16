@@ -2,7 +2,7 @@ import { getServerAuthSession } from "@/server/auth"
 
 export function Navbar() {
   return (
-    <div className="flex w-screen justify-end p-2 text-xl">
+    <div className="flex w-screen justify-end p-2 text-xl text-black">
       <LoggedInStatus />
     </div>
   )
