@@ -1,8 +1,8 @@
 "use client"
 
-import Image from "next/image"
 import Link from "next/link"
 import { useState } from "react"
+import { AlternatingImage } from "./AlternatingImage"
 
 export function Settings() {
   const [hovered, setHovered] = useState(false)
@@ -19,11 +19,11 @@ export function Settings() {
       href="/settings"
     >
       <div className="text-lg">{hovered ? "Settings" : ""}</div>
-      <Image
-        src={`/static/images/${hovered ? "gear-2.png" : "gear-1.png"}`}
+      <AlternatingImage
+        src1="/static/images/gear-1.png"
+        src2="/static/images/gear-2.png"
         height={30}
         width={30}
-        alt="gear-1"
       />
     </Link>
   )
