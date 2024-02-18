@@ -42,3 +42,5 @@ yarn-error.log*
 *.tsbuildinfo
 
 /commit-message.txt
+
+.eslintcache
