@@ -503,7 +503,11 @@ function CenterBoard({
             <ChangeAfterSomeTime
               ms={2000}
               before={null}
-              after={<div>{JSON.stringify(user)}</div>}
+              after={
+                <div className="flex gap-2">
+                  <UserImage src={user.image} /> {user.name}
+                </div>
+              }
             />
           </div>
         }

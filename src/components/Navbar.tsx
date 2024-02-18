@@ -1,10 +1,14 @@
 import { getServerAuthSession } from "@/server/auth"
 import { UserImage } from "./UserImage"
+import { Settings } from "./NavbarClient"
 
 export function Navbar() {
   return (
     <div className="flex w-screen justify-end p-2 text-2xl text-black">
-      <LoggedInStatus />
+      <div className="absolute flex flex-col items-end">
+        <LoggedInStatus />
+        <Settings />
+      </div>
     </div>
   )
 }
