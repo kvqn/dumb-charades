@@ -8,7 +8,7 @@ export default async function HomePage() {
   await redirectInGameUser()
   return (
     <div className="flex h-screen flex-col font-virgil">
-      <Navbar />
+      <Navbar showTitle={false} />
       <div className="flex w-screen flex-grow flex-col items-center justify-center gap-40">
         <div className="text-8xl font-black">Scribble Wars</div>
         <StartGame />
