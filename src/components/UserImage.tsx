@@ -4,23 +4,27 @@ import { twMerge } from "tailwind-merge"
 export function UserImage({
   src,
   className,
-  scale,
+  scale = 1,
+  size = 20,
 }: {
   src: string | undefined | null
   className?: string
   scale?: number
+  size?: number
 }) {
   return (
     <div
       className={twMerge(
-        "h-[20px] w-[20px] flex-shrink-0 overflow-hidden rounded-full border-2 border-black",
+        "flex-shrink-0 overflow-hidden rounded-full border-2 border-black",
         className,
       )}
       style={{
-        scale: scale ?? 1,
+        scale: scale,
+        height: size,
+        width: size,
       }}
     >
-      {src ? <Image width={20} height={20} src={src} alt="img" /> : null}
+      {src ? <Image width={size} height={size} src={src} alt="img" /> : null}
     </div>
   )
 }
