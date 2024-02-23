@@ -29,6 +29,7 @@ import { UserImage } from "@/components/UserImage"
 import { titleCase } from "@/client/utils"
 import { Coin } from "@/components/Coin"
 import Head from "next/head"
+import { AlternatingImage } from "@/components/AlternatingImage"
 
 export function Game({ partyId, user }: { partyId: string; user: User }) {
   const [members, setMembers] = useState<Prisma.UserGetPayload<object>[]>([])
@@ -311,11 +312,18 @@ function LeftBoard({
         <div className="flex flex-col items-center">
           {Array.from(teams.red.values()).map((user, idx) => (
             <div key={idx} className="flex w-full justify-center gap-2 px-2">
+              {drawingUserId === user.id ? (
+                <AlternatingImage
+                  src1="/static/images/pencil-1.png"
+                  src2="/static/images/pencil-2.png"
+                  width={20}
+                  height={20}
+                />
+              ) : null}
               <UserImage src={user.image} />
               <div className="overflow-hidden text-ellipsis text-nowrap">
                 {user.name}
               </div>
-              {drawingUserId === user.id ? <div>(drawing)</div> : null}
             </div>
           ))}
         </div>
@@ -331,11 +339,18 @@ function LeftBoard({
         <div className="flex flex-col items-center overflow-hidden">
           {Array.from(teams.blue.values()).map((user, idx) => (
             <div key={idx} className="flex w-full justify-center gap-2 px-2">
+              {drawingUserId === user.id ? (
+                <AlternatingImage
+                  src1="/static/images/pencil-1.png"
+                  src2="/static/images/pencil-2.png"
+                  width={20}
+                  height={20}
+                />
+              ) : null}
               <UserImage src={user.image} />
               <div className="overflow-hidden text-ellipsis text-nowrap">
                 {user.name}
               </div>
-              {drawingUserId === user.id ? <div>(drawing)</div> : null}
             </div>
           ))}
         </div>
