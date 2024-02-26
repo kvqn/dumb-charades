@@ -12,10 +12,14 @@ export default async function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="pattern-dots-md h-screen w-screen bg-teal-50 text-gray-200">
-      <div className="flex h-full flex-col overflow-hidden font-virgil text-black">
-        {children}
-      </div>
-    </div>
+    <html lang="en">
+      <body>
+        <div className="pattern-dots-md h-screen w-screen bg-teal-50 text-gray-200">
+          <div className="flex h-full flex-col overflow-hidden font-virgil text-black">
+            {children}
+          </div>
+        </div>
+      </body>
+    </html>
   )
 }

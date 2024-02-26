@@ -28,7 +28,6 @@ import { type Word } from "@/server/words"
 import { UserImage } from "@/components/UserImage"
 import { titleCase } from "@/client/utils"
 import { Coin } from "@/components/Coin"
-import Head from "next/head"
 import { AlternatingImage } from "@/components/AlternatingImage"
 
 export function Game({ partyId, user }: { partyId: string; user: User }) {
