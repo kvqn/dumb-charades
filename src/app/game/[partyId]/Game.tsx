@@ -29,6 +29,7 @@ import { UserImage } from "@/components/UserImage"
 import { titleCase } from "@/client/utils"
 import { Coin } from "@/components/Coin"
 import { AlternatingImage } from "@/components/AlternatingImage"
+import useSound from "use-sound"
 
 export function Game({ partyId, user }: { partyId: string; user: User }) {
   const [members, setMembers] = useState<Prisma.UserGetPayload<object>[]>([])
@@ -205,6 +206,9 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
 
   const [round, setRound] = useState(0)
 
+  const [playAudio_roundStart] = useSound("/static/sounds/round-start.wav")
+  const [playAudio_correctGuess] = useSound("/static/sounds/correct-guess.wav")
+
   useEffect(() => {
     const SocketChangeGameStateHandler = (
       event: SocketChangeGameStateEvent,
@@ -217,6 +221,12 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
       } else if (event.state != "DRAWING") {
         setDrawingUserId(undefined)
         setDrawingTeam(undefined)
+      }
+      if (event.state === "DRAWING") {
+        playAudio_roundStart()
+      }
+      if (event.state === "GUESS_CORRECT") {
+        playAudio_correctGuess()
       }
       setGameStateEvent(event)
     }

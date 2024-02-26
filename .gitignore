@@ -44,3 +44,6 @@ yarn-error.log*
 /commit-message.txt
 
 .eslintcache
+
+/assets/project.aup3-shm
+/assets/project.aup3-wal
