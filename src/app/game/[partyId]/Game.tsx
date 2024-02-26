@@ -306,7 +306,7 @@ function LeftBoard({
         {isLobby ? null : (
           <div className="flex w-full justify-center gap-1 text-xs">
             {teamPoints.red}
-            <Coin width={12} height={12} />
+            <Coin width={15} height={15} />
           </div>
         )}
         <div className="flex flex-col items-center">
@@ -333,7 +333,7 @@ function LeftBoard({
         {isLobby ? null : (
           <div className="flex w-full justify-center gap-1 text-xs">
             {teamPoints.blue}
-            <Coin width={12} height={12} />
+            <Coin width={15} height={15} />
           </div>
         )}
         <div className="flex flex-col items-center overflow-hidden">
