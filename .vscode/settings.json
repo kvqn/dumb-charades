@@ -6,6 +6,7 @@
     "NEXTAUTH",
     "nextjs",
     "runtimes",
-    "signin"
+    "signin",
+    "Tldr"
   ]
 }

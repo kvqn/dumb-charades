@@ -2,6 +2,7 @@ import { Navbar } from "@/components/Navbar"
 import { getServerAuthSession } from "@/server/auth"
 import { redirectInGameUser } from "@/server/redirect"
 import Link from "next/link"
+import { AboutTheGame } from "./client"
 
 export default async function HomePage() {
   // check if user is part of a game session
@@ -12,6 +13,7 @@ export default async function HomePage() {
       <div className="flex w-screen flex-grow flex-col items-center justify-center gap-40">
         <div className="text-8xl font-black">Scribble Wars</div>
         <StartGame />
+        <AboutTheGame />
       </div>
     </div>
   )
