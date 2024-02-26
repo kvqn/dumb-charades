@@ -5,7 +5,7 @@ import Link from "next/link"
 
 export function Navbar({ showTitle = true }) {
   return (
-    <div className="flex w-screen justify-end p-2 text-2xl text-black">
+    <div className="flex justify-end p-1 text-2xl text-black">
       {showTitle && <WebpageTitle />}
       <div className="flex-grow"></div>
       <div className="absolute flex flex-col items-end">
