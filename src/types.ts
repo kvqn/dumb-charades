@@ -134,6 +134,6 @@ export type SocketVoteWordEvent = {
 
 export type SocketAddPointsEvent = {
   team: "red" | "blue"
-  userId: string
+  userId: string | null
   points: number
 }

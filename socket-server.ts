@@ -468,6 +468,13 @@ io.on("connection", (socket) => {
         points: party.currentWord.points,
       }
       io.to(partyId).emit("SocketAddPointsEvent", addPointsEvent)
+
+      const emitEvent: SocketAddPointsEvent = {
+        team: party.drawingTeam === "red" ? "blue" : "red",
+        points: -party.currentWord.points,
+        userId: null,
+      }
+      io.to(partyId).emit("SocketAddPointsEvent", emitEvent)
       await sleep(3000)
       await SocketRoundChangeEvent(partyId)
     }
