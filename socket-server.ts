@@ -102,12 +102,14 @@ const getUserAndParty = (socketId: string) => {
 io.on("connection", (socket) => {
   console.log("connected", socket.id)
 
+  // Triggered when the Socket Id changes for whatever reason (page reload, etc.)
   socket.on("SocketIdentify", async (userId: string) => {
     socketUserMap.set(socket.id, userId)
     io.to(socket.id).emit("SocketIdentifyAck")
     console.log(socket.id, "identified as", userId)
   })
 
+  // Triggered when the user joins a party (loads the /game/[partyId] page)
   socket.on("SocketJoinParty", async (partyId: string) => {
     console.log("SocketJoinParty")
     const userId = socketUserMap.get(socket.id)
@@ -215,6 +217,7 @@ io.on("connection", (socket) => {
     }
   })
 
+  // Triggered when user sends a chat message.
   socket.on("SocketChatEvent", async (event: SocketChatEvent) => {
     const userId = socketUserMap.get(socket.id)
     if (!userId) {
@@ -246,33 +249,7 @@ io.on("connection", (socket) => {
     console.log("SocketChatEvent: created event")
   })
 
-  socket.on("SocketStartDrawing", (event: SocketStartDrawingEvent) => {
-    const userId = socketUserMap.get(socket.id)
-    if (!userId) return
-    const partyId = userPartyMap.get(userId)
-    if (!partyId) return
-
-    socket.to(partyId).emit("SocketStartDrawing", event)
-  })
-
-  socket.on("SocketDraw", (event: SocketDrawEvent) => {
-    const userId = socketUserMap.get(socket.id)
-    if (!userId) return
-    const partyId = userPartyMap.get(userId)
-    if (!partyId) return
-
-    socket.to(partyId).emit("SocketDraw", event)
-  })
-
-  socket.on("SocketFinishDrawing", (event: SocketFinishDrawingEvent) => {
-    const userId = socketUserMap.get(socket.id)
-    if (!userId) return
-    const partyId = userPartyMap.get(userId)
-    if (!partyId) return
-
-    socket.to(partyId).emit("SocketFinishDrawing", event)
-  })
-
+  // Triggered when user changes the team.
   socket.on("SocketChangeTeamEvent", async (event: SocketChangeTeamEvent) => {
     const userId = socketUserMap.get(socket.id)
     if (!userId) return
@@ -429,34 +406,7 @@ io.on("connection", (socket) => {
     }
   }
 
-  socket.on("SocketGuess", async (event: SocketGuessEvent) => {
-    console.log("aa")
-    const { userId, partyId } = getUserAndParty(socket.id)
-    if (!userId || !partyId) return
-
-    const party = await getParty(partyId)
-    if (!party) return
-    if (!party.currentWord) return
-    console.log("bb")
-
-    if (event.guess.toLowerCase() == party.currentWord.word.toLowerCase()) {
-      console.log("cc")
-      io.to(partyId).emit("SocketChangeGameStateEvent", {
-        state: "GUESS_CORRECT",
-        guesserId: userId,
-      } as SocketChangeGameStateEvent)
-
-      const addPointsEvent: SocketAddPointsEvent = {
-        team: party.teams.red.has(userId) ? "red" : "blue",
-        userId: userId,
-        points: party.currentWord.points,
-      }
-      io.to(partyId).emit("SocketAddPointsEvent", addPointsEvent)
-      await sleep(3000)
-      await SocketRoundChangeEvent(partyId)
-    }
-  })
-
+  // Triggered when the party leader starts the game.
   socket.on("SocketStartGameEvent", async (event: SocketStartGameEvent) => {
     const { userId, partyId } = getUserAndParty(socket.id)
     if (!userId || !partyId) return
@@ -493,6 +443,37 @@ io.on("connection", (socket) => {
     await SocketRoundChangeEvent(partyId)
   })
 
+  // Triggered when user sends a chat message when their team is the guessing team.
+  // TODO: remove this. use the SocketChatEvent.
+  socket.on("SocketGuess", async (event: SocketGuessEvent) => {
+    console.log("aa")
+    const { userId, partyId } = getUserAndParty(socket.id)
+    if (!userId || !partyId) return
+
+    const party = await getParty(partyId)
+    if (!party) return
+    if (!party.currentWord) return
+    console.log("bb")
+
+    if (event.guess.toLowerCase() == party.currentWord.word.toLowerCase()) {
+      console.log("cc")
+      io.to(partyId).emit("SocketChangeGameStateEvent", {
+        state: "GUESS_CORRECT",
+        guesserId: userId,
+      } as SocketChangeGameStateEvent)
+
+      const addPointsEvent: SocketAddPointsEvent = {
+        team: party.teams.red.has(userId) ? "red" : "blue",
+        userId: userId,
+        points: party.currentWord.points,
+      }
+      io.to(partyId).emit("SocketAddPointsEvent", addPointsEvent)
+      await sleep(3000)
+      await SocketRoundChangeEvent(partyId)
+    }
+  })
+
+  // Triggered when user votes for a word.
   socket.on("SocketUserVoteWord", async (event: SocketUserVoteWordEvent) => {
     const { userId, partyId } = getUserAndParty(socket.id)
     if (!userId || !partyId) return
@@ -515,6 +496,36 @@ io.on("connection", (socket) => {
       word: event.word,
     }
     io.to(partyId).emit("SocketVoteWord", emitEvent)
+  })
+
+  // These events are triggered by the canvas.
+  // If you have an issue, it's probably not here.
+
+  socket.on("SocketStartDrawing", (event: SocketStartDrawingEvent) => {
+    const userId = socketUserMap.get(socket.id)
+    if (!userId) return
+    const partyId = userPartyMap.get(userId)
+    if (!partyId) return
+
+    socket.to(partyId).emit("SocketStartDrawing", event)
+  })
+
+  socket.on("SocketDraw", (event: SocketDrawEvent) => {
+    const userId = socketUserMap.get(socket.id)
+    if (!userId) return
+    const partyId = userPartyMap.get(userId)
+    if (!partyId) return
+
+    socket.to(partyId).emit("SocketDraw", event)
+  })
+
+  socket.on("SocketFinishDrawing", (event: SocketFinishDrawingEvent) => {
+    const userId = socketUserMap.get(socket.id)
+    if (!userId) return
+    const partyId = userPartyMap.get(userId)
+    if (!partyId) return
+
+    socket.to(partyId).emit("SocketFinishDrawing", event)
   })
 })
 
