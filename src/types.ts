@@ -85,6 +85,7 @@ export type SocketChangeGameStateEvent =
     }
   | {
       state: "TOSS"
+      startingCredits: number
     }
   | {
       state: "ROUND_CHANGE"
@@ -119,6 +120,7 @@ export type SocketStartGameEvent = {
   timeToGuess: number
   category: string
   wordChoices: number
+  startingCredits: number
 }
 
 export type SocketUserVoteWordEvent = {

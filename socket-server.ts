@@ -30,24 +30,25 @@ const io = new Server({
 
 const userPartyMap = new Map<string, string>()
 const socketUserMap = new Map<string, string>()
-const partyMap = new Map<
-  string,
-  {
-    leaderId: string
-    teams: { red: Set<string>; blue: Set<string> }
-    scores: { red: number; blue: number }
-    round: number
-    half: "FIRST" | "SECOND"
-    drawingTeam: "red" | "blue" | null
-    drawingUserId: string | null
-    currentWord: Word | null
-    rounds: number
-    timeToGuess: number
-    category: "Gaming" | "Technology"
-    wordChoices: number
-    wordVotes: Map<string, Set<string>>
-  }
->()
+
+type Party = {
+  leaderId: string
+  teams: { red: Set<string>; blue: Set<string> }
+  scores: { red: number; blue: number }
+  round: number
+  half: "FIRST" | "SECOND"
+  drawingTeam: "red" | "blue" | null
+  drawingUserId: string | null
+  currentWord: Word | null
+  rounds: number
+  timeToGuess: number
+  category: "Gaming" | "Technology"
+  wordChoices: number
+  wordVotes: Map<string, Set<string>>
+  startingCredits: number
+}
+
+const partyMap = new Map<string, Party>()
 
 const getParty = async (partyId: string) => {
   if (partyMap.has(partyId)) return partyMap.get(partyId)!
@@ -60,7 +61,7 @@ const getParty = async (partyId: string) => {
 
   if (!dbParty) return null
 
-  const party = {
+  const party: Party = {
     leaderId: dbParty.leaderId,
     teams: {
       red: new Set<string>(),
@@ -75,12 +76,12 @@ const getParty = async (partyId: string) => {
     drawingTeam: null,
     drawingUserId: null,
     currentWord: null,
-    guessed: false,
     rounds: 3,
     timeToGuess: 10000,
     category: "Gaming" as const,
     wordChoices: 3,
     wordVotes: new Map<string, Set<string>>(),
+    startingCredits: 1000,
   }
 
   partyMap.set(partyId, party)
@@ -471,6 +472,9 @@ io.on("connection", (socket) => {
     party.timeToGuess = event.timeToGuess * 1000
     party.category = z.enum(["Gaming", "Technology"]).parse(event.category)
     party.wordChoices = event.wordChoices
+    party.startingCredits = event.startingCredits
+    party.scores.blue = event.startingCredits
+    party.scores.red = event.startingCredits
 
     partyMap.set(partyId, party)
 
@@ -478,9 +482,11 @@ io.on("connection", (socket) => {
     // TODO: check if user is party leader
     // TODO: check if both teams have at least 1 user
 
-    io.to(partyId).emit("SocketChangeGameStateEvent", {
+    const emitEvent: SocketChangeGameStateEvent = {
       state: "TOSS",
-    } as SocketChangeGameStateEvent)
+      startingCredits: event.startingCredits,
+    }
+    io.to(partyId).emit("SocketChangeGameStateEvent", emitEvent)
 
     await sleep(5000)
 

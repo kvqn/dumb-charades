@@ -209,6 +209,8 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
   const [playAudio_roundStart] = useSound("/static/sounds/round-start.wav")
   const [playAudio_correctGuess] = useSound("/static/sounds/correct-guess.wav")
 
+  const [startingCredits, setStartingCredits] = useState(1000)
+
   useEffect(() => {
     const SocketChangeGameStateHandler = (
       event: SocketChangeGameStateEvent,
@@ -228,13 +230,16 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
       if (event.state === "GUESS_CORRECT") {
         playAudio_correctGuess()
       }
+      if (event.state === "TOSS") {
+        setStartingCredits(event.startingCredits)
+      }
       setGameStateEvent(event)
     }
     socket.on("SocketChangeGameStateEvent", SocketChangeGameStateHandler)
     return () => {
       socket.off("SocketChangeGameStateEvent", SocketChangeGameStateHandler)
     }
-  }, [gameStateEvent, drawingUserId, drawingTeam, teams])
+  }, [gameStateEvent, drawingUserId, drawingTeam, teams, startingCredits])
 
   if (gameDestroyed) return <div>Game destroyed</div>
 
@@ -256,6 +261,7 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
             teams={teams}
             drawingUserId={drawingUserId}
             isLobby={gameStateEvent.state === "LOBBY"}
+            startingCredits={startingCredits}
           />
         </div>
         <div className="h-[500px] w-[700px] flex-grow border-x-4 border-black bg-white">
@@ -284,12 +290,17 @@ function LeftBoard({
   teams,
   drawingUserId,
   isLobby,
+  startingCredits,
 }: {
   teams: { red: Map<string, SimpleUser>; blue: Map<string, SimpleUser> }
   drawingUserId?: string
   isLobby: boolean
+  startingCredits: number
 }) {
-  const [teamPoints, setTeamPoints] = useState({ red: 0, blue: 0 })
+  const [teamPoints, setTeamPoints] = useState({
+    red: startingCredits,
+    blue: startingCredits,
+  })
 
   useEffect(() => {
     const SocketAddPointsHandler = (event: SocketAddPointsEvent) => {
@@ -390,6 +401,7 @@ function CenterBoard({
   let timeToGuess = 30
   let category = "Gaming"
   let choices = 3
+  let startingCredits = 300
 
   const userTeam = teams.red.has(user.id) ? "red" : "blue"
 
@@ -478,6 +490,21 @@ function CenterBoard({
                   <option>5</option>
                 </select>
               </div>
+              <div className="flex items-center gap-4">
+                Starting Credits :
+                <select
+                  className="rounded-xl border-2 border-black px-2 py-1"
+                  onChange={(e) => {
+                    startingCredits = parseInt(e.target.value)
+                  }}
+                >
+                  <option>300</option>
+                  <option>500</option>
+                  <option>1000</option>
+                  <option>1500</option>
+                  <option>2000</option>
+                </select>
+              </div>
             </div>
             <div className="flex gap-2">
               <button
@@ -487,6 +514,7 @@ function CenterBoard({
                     timeToGuess: timeToGuess,
                     category: category,
                     wordChoices: choices,
+                    startingCredits: startingCredits,
                   }
                   socket.emit("SocketStartGameEvent", event)
                 }}
