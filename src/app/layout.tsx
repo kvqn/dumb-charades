@@ -1,4 +1,5 @@
 import "@/styles/globals.css"
+import { Toaster } from "react-hot-toast"
 
 export const metadata = {
   title: "Scribble Wars",
@@ -19,6 +20,7 @@ export default async function RootLayout({
             {children}
           </div>
         </div>
+        <Toaster containerClassName="font-virgil" />
       </body>
     </html>
   )
