@@ -11,6 +11,7 @@ import type {
   SocketStartDrawingEvent,
 } from "@/types"
 import { useEffect, useRef, useState } from "react"
+import { socketSend } from "./Game"
 
 export function DrawingCanvas({
   isUserDrawing,
@@ -111,25 +112,42 @@ export function DrawingCanvas({
         className="h-full  w-full border-4"
         onMouseDown={(event) => {
           if (!isUserDrawing) return
-          startDrawing(event.nativeEvent.offsetX, event.nativeEvent.offsetY)
-          socket.emit("SocketStartDrawing", {
-            x: event.nativeEvent.offsetX,
-            y: event.nativeEvent.offsetY,
+          const x = event.nativeEvent.offsetX
+          const y = event.nativeEvent.offsetY
+          startDrawing(x, y)
+          socketSend({
+            type: "SocketStartDrawing",
+            event: {
+              x: x,
+              y: y,
+            },
           })
         }}
         onMouseMove={(event) => {
           if (!isUserDrawing || !isDrawing) return
           const x = event.nativeEvent.offsetX
           const y = event.nativeEvent.offsetY
-          draw(event.nativeEvent.offsetX, event.nativeEvent.offsetY)
-          socket.emit("SocketDraw", { x: x, y: y })
+          draw(x, y)
+          socketSend({
+            type: "SocketDraw",
+            event: {
+              x: x,
+              y: y,
+            },
+          })
         }}
         onMouseUp={(event) => {
           if (!isUserDrawing) return
           const x = event.nativeEvent.offsetX
           const y = event.nativeEvent.offsetY
-          finishDrawing(event.nativeEvent.offsetX, event.nativeEvent.offsetY)
-          socket.emit("SocketFinishDrawing", { x: x, y: y })
+          finishDrawing(x, y)
+          socketSend({
+            type: "SocketFinishDrawing",
+            event: {
+              x: x,
+              y: y,
+            },
+          })
         }}
       />
     </div>

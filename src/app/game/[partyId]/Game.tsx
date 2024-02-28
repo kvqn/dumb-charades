@@ -17,6 +17,9 @@ import type {
   SocketAddPointsEvent,
   SocketAddCustomWordEvent,
   SocketSubmitCustomWordEvent,
+  SocketStartDrawingEvent,
+  SocketDrawEvent,
+  SocketFinishDrawingEvent,
 } from "@/types"
 import { type Prisma } from "@prisma/client"
 import { type User } from "next-auth"
@@ -35,7 +38,23 @@ import useSound from "use-sound"
 import { TextInput } from "@/components/TextInput"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
 import { faCheck } from "@fortawesome/free-solid-svg-icons"
-import { setMaxListeners } from "stream"
+
+type EventPayload =
+  | { type: "SocketIdentify"; event: string }
+  | { type: "SocketJoinParty"; event: string }
+  | { type: "SocketStartGameEvent"; event: SocketStartGameEvent }
+  | { type: "SocketChatEvent"; event: SocketChatEvent }
+  | { type: "SocketGuess"; event: SocketGuessEvent }
+  | { type: "SocketChangeTeamEvent"; event: SocketChangeTeamEvent }
+  | { type: "SocketUserVoteWord"; event: SocketUserVoteWordEvent }
+  | { type: "SocketSubmitCustomWord"; event: SocketSubmitCustomWordEvent }
+  | { type: "SocketStartDrawing"; event: SocketStartDrawingEvent }
+  | { type: "SocketDraw"; event: SocketDrawEvent }
+  | { type: "SocketFinishDrawing"; event: SocketFinishDrawingEvent }
+
+export function socketSend(payload: EventPayload) {
+  socket.emit(payload.type, payload.event)
+}
 
 export function Game({ partyId, user }: { partyId: string; user: User }) {
   const [members, setMembers] = useState<Prisma.UserGetPayload<object>[]>([])
@@ -72,9 +91,15 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
     useState<SocketChangeGameStateEvent>({ state: "LOBBY" })
 
   useEffect(() => {
-    socket.emit("SocketIdentify", user.id)
+    socketSend({
+      type: "SocketIdentify",
+      event: user.id,
+    })
     const SocketIdentifyAckHandler = () => {
-      socket.emit("SocketJoinParty", partyId)
+      socketSend({
+        type: "SocketJoinParty",
+        event: partyId,
+      })
     }
     socket.on("SocketIdentifyAck", SocketIdentifyAckHandler)
     console.log("socket", socket.id)
@@ -531,15 +556,17 @@ function CenterBoard({
             <div className="flex gap-2">
               <button
                 onClick={() => {
-                  const event: SocketStartGameEvent = {
-                    rounds: rounds,
-                    timeToGuess: timeToGuess,
-                    category: category,
-                    wordChoices: choices,
-                    startingCredits: startingCredits,
-                    allowCustomWord: _allowCustomWord,
-                  }
-                  socket.emit("SocketStartGameEvent", event)
+                  socketSend({
+                    type: "SocketStartGameEvent",
+                    event: {
+                      rounds: rounds,
+                      timeToGuess: timeToGuess,
+                      category: category,
+                      wordChoices: choices,
+                      startingCredits: startingCredits,
+                      allowCustomWord: _allowCustomWord,
+                    },
+                  })
                 }}
                 className="rounded-2xl border-2 border-black bg-green-300 px-4 py-2 hover:border-green-800 hover:bg-green-400"
               >
@@ -723,17 +750,21 @@ function ChatBox({
               if (chatBoxRef.current?.value) {
                 const message = chatBoxRef.current?.value
                 chatBoxRef.current.value = ""
-                const chatEvent: SocketChatEvent = {
-                  userId: user.id,
-                  name: user.name ?? "",
-                  image: user.image ?? null,
-                  message: message,
-                }
-                socket.emit("SocketChatEvent", chatEvent)
-                const guessEvent: SocketGuessEvent = {
-                  guess: message,
-                }
-                socket.emit("SocketGuess", guessEvent)
+                socketSend({
+                  type: "SocketChatEvent",
+                  event: {
+                    userId: user.id,
+                    name: user.name ?? "",
+                    image: user.image ?? null,
+                    message: message,
+                  },
+                })
+                socketSend({
+                  type: "SocketGuess",
+                  event: {
+                    guess: message,
+                  },
+                })
                 console.log("emitted as socket", socket.id)
               }
             }
@@ -749,15 +780,17 @@ function JoinTeamButton({ team, user }: { team: "red" | "blue"; user: User }) {
   return (
     <button
       onClick={() => {
-        const event: SocketChangeTeamEvent = {
-          team: team,
-          user: {
-            id: user.id,
-            name: user.name ?? "",
-            image: user.image ?? null,
+        socketSend({
+          type: "SocketChangeTeamEvent",
+          event: {
+            team: team,
+            user: {
+              id: user.id,
+              name: user.name ?? "",
+              image: user.image ?? null,
+            },
           },
-        }
-        socket.emit("SocketChangeTeamEvent", event)
+        })
       }}
       className={twMerge(
         "rounded-2xl border-2 border-black px-4 py-2",
@@ -839,10 +872,12 @@ function Voting({
             key={idx}
             className="relative flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-black bg-white px-4 py-2 hover:bg-slate-100"
             onClick={() => {
-              const emitEvent: SocketUserVoteWordEvent = {
-                word: word,
-              }
-              socket.emit("SocketUserVoteWord", emitEvent)
+              socketSend({
+                type: "SocketUserVoteWord",
+                event: {
+                  word: word,
+                },
+              })
             }}
           >
             <div>{word.word}</div>
@@ -879,10 +914,12 @@ function Voting({
               onClick={() => {
                 if (customWord == "") return
                 setHasSubmittedCustomWord(true)
-                const emitEvent: SocketSubmitCustomWordEvent = {
-                  word: customWord,
-                }
-                socket.emit("SocketSubmitCustomWord", emitEvent)
+                socketSend({
+                  type: "SocketSubmitCustomWord",
+                  event: {
+                    word: customWord,
+                  },
+                })
               }}
             />
           </div>

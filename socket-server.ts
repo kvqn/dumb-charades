@@ -30,6 +30,32 @@ const io = new Server({
   },
 })
 
+type EventPayload =
+  | { type: "SocketIdentifyAck" }
+  | { type: "SocketPartyCreateEvent"; event: SocketPartyCreateEvent }
+  | { type: "SocketPartyDestroyEvent"; event: SocketPartyDestroyEvent }
+  | { type: "SocketUserEnterEvent"; event: SocketUserEnterEvent }
+  | { type: "SocketUserLeaveEvent"; event: SocketUserEnterEvent }
+  | { type: "SocketChatEvent"; event: SocketChatEvent }
+  | { type: "SocketChangeTeamEvent"; event: SocketChangeTeamEvent }
+  | { type: "SocketChangeGameStateEvent"; event: SocketChangeGameStateEvent }
+  | { type: "SocketUserStartDrawing" }
+  | { type: "SocketUserStopDrawing" }
+  | { type: "SocketStartDrawing"; event: SocketStartDrawingEvent }
+  | { type: "SocketDraw"; event: SocketDrawEvent }
+  | { type: "SocketFinishDrawing"; event: SocketFinishDrawingEvent }
+  | { type: "SocketVoteWord"; event: SocketVoteWordEvent }
+  | { type: "SocketAddCustomWord"; event: SocketAddCustomWordEvent }
+  | { type: "SocketAddPointsEvent"; event: SocketAddPointsEvent }
+
+function ioSend(room: string, payload: EventPayload) {
+  if ("event" in payload) {
+    io.to(room).emit(payload.type, payload.event)
+  } else {
+    io.to(room).emit(payload.type)
+  }
+}
+
 const userPartyMap = new Map<string, string>()
 const socketUserMap = new Map<string, string>()
 
@@ -107,7 +133,7 @@ io.on("connection", (socket) => {
   // Triggered when the Socket Id changes for whatever reason (page reload, etc.)
   socket.on("SocketIdentify", async (userId: string) => {
     socketUserMap.set(socket.id, userId)
-    io.to(socket.id).emit("SocketIdentifyAck")
+    ioSend(socket.id, { type: "SocketIdentifyAck" })
     console.log(socket.id, "identified as", userId)
   })
 
@@ -180,41 +206,53 @@ io.on("connection", (socket) => {
 
     for (const event of events) {
       if (event.PartyCreateEvent) {
-        const emitEvent: SocketPartyCreateEvent = event.PartyCreateEvent
-        io.to(socket.id).emit("SocketPartyCreateEvent", emitEvent)
+        ioSend(socket.id, {
+          type: "SocketPartyCreateEvent",
+          event: event.PartyCreateEvent,
+        })
       }
       if (event.PartyDestroyEvent) {
-        const emitEvent: SocketPartyDestroyEvent = event.PartyDestroyEvent
-        io.to(socket.id).emit("SocketPartyDestroyEvent", emitEvent)
+        ioSend(socket.id, {
+          type: "SocketPartyDestroyEvent",
+          event: event.PartyDestroyEvent,
+        })
       }
       if (event.UserEnterEvent) {
-        const emitEvent: SocketUserEnterEvent = event.UserEnterEvent
-        io.to(socket.id).emit("SocketUserEnterEvent", emitEvent)
+        ioSend(socket.id, {
+          type: "SocketUserEnterEvent",
+          event: event.UserEnterEvent,
+        })
       }
       if (event.UserLeaveEvent) {
-        const emitEvent: SocketUserEnterEvent = event.UserLeaveEvent
-        io.to(socket.id).emit("SocketUserLeaveEvent", emitEvent)
+        ioSend(socket.id, {
+          type: "SocketUserLeaveEvent",
+          event: event.UserLeaveEvent,
+        })
       }
       if (event.ChatEvent) {
-        const emitEvent: SocketChatEvent = {
-          userId: event.ChatEvent.userId,
-          name: event.ChatEvent.user.name ?? "",
-          image: event.ChatEvent.user.image,
-          message: event.ChatEvent.message,
-        }
-        io.to(socket.id).emit("SocketChatEvent", emitEvent)
+        ioSend(socket.id, {
+          type: "SocketChatEvent",
+          event: {
+            userId: event.ChatEvent.userId,
+            name: event.ChatEvent.user.name ?? "",
+            image: event.ChatEvent.user.image,
+            message: event.ChatEvent.message,
+          },
+        })
       }
 
       if (event.ChangeTeamEvent) {
-        const emitEvent: SocketChangeTeamEvent = {
-          user: {
-            id: event.ChangeTeamEvent.userId,
-            name: event.ChangeTeamEvent.user.name ?? "",
-            image: event.ChangeTeamEvent.user.image,
+        ioSend(socket.id, {
+          type: "SocketChangeTeamEvent",
+          event: {
+            user: {
+              id: event.ChangeTeamEvent.userId,
+              name: event.ChangeTeamEvent.user.name ?? "",
+              image: event.ChangeTeamEvent.user.image,
+            },
+            team: event.ChangeTeamEvent.team,
           },
-          team: event.ChangeTeamEvent.team,
-        }
-        io.to(socket.id).emit("SocketChangeTeamEvent", emitEvent)
+        })
       }
     }
   })
@@ -234,7 +272,7 @@ io.on("connection", (socket) => {
     console.log("SocketChatEvent", userId, partyId)
     console.log(socket.rooms)
 
-    io.to(partyId).emit("SocketChatEvent", event)
+    ioSend(partyId, { type: "SocketChatEvent", event })
 
     await db.event.create({
       data: {
@@ -271,7 +309,7 @@ io.on("connection", (socket) => {
 
     partyMap.set(partyId, party)
 
-    io.to(partyId).emit("SocketChangeTeamEvent", event)
+    ioSend(partyId, { type: "SocketChangeTeamEvent", event })
     await db.event.create({
       data: {
         partyId: partyId,
@@ -323,9 +361,12 @@ io.on("connection", (socket) => {
           },
         },
       })
-      io.to(partyId).emit("SocketChangeGameStateEvent", {
-        state: "GAME_OVER",
-      } as SocketChangeGameStateEvent)
+      ioSend(partyId, {
+        type: "SocketChangeGameStateEvent",
+        event: {
+          state: "GAME_OVER",
+        },
+      })
       return
     }
 
@@ -352,16 +393,17 @@ io.on("connection", (socket) => {
 
     partyMap.set(partyId, party)
 
-    let emitEvent: SocketChangeGameStateEvent = {
-      state: "ROUND_CHANGE",
-      round: party.round,
-      rounds: party.rounds,
-      drawingTeam: party.drawingTeam,
-      drawingUserId: party.drawingUserId,
-      words: words,
-    }
-
-    io.to(partyId).emit("SocketChangeGameStateEvent", emitEvent)
+    ioSend(partyId, {
+      type: "SocketChangeGameStateEvent",
+      event: {
+        state: "ROUND_CHANGE",
+        round: party.round,
+        rounds: party.rounds,
+        drawingTeam: party.drawingTeam,
+        drawingUserId: party.drawingUserId,
+        words: words,
+      },
+    })
 
     await sleep(15000)
 
@@ -373,20 +415,21 @@ io.on("connection", (socket) => {
 
     party.currentWord = word
 
-    emitEvent = {
-      state: "DRAWING",
-      word: party.currentWord,
-      timeToGuess: party.timeToGuess,
-    }
-
-    io.to(partyId).emit("SocketChangeGameStateEvent", emitEvent)
+    ioSend(partyId, {
+      type: "SocketChangeGameStateEvent",
+      event: {
+        state: "DRAWING",
+        word: party.currentWord,
+        timeToGuess: party.timeToGuess,
+      },
+    })
 
     Array.from(socketUserMap.entries())
       .filter((entry) => entry[1] === party.drawingUserId)
       .map((entry) => entry[0])
       .forEach((socketId) => {
         console.log("start drawing", socketId)
-        io.to(socketId).emit("SocketUserStartDrawing")
+        ioSend(socketId, { type: "SocketUserStartDrawing" })
       })
 
     await sleep(party.timeToGuess)
@@ -398,11 +441,14 @@ io.on("connection", (socket) => {
         .map((entry) => entry[0])
         .forEach((socketId) => {
           console.log("start drawing", socketId)
-          io.to(socketId).emit("SocketUserStopDrawing")
+          ioSend(socketId, { type: "SocketUserStopDrawing" })
         })
-      io.to(partyId).emit("SocketChangeGameStateEvent", {
-        state: "GUESS_TIMEOUT",
-      } as SocketChangeGameStateEvent)
+      ioSend(partyId, {
+        type: "SocketChangeGameStateEvent",
+        event: {
+          state: "GUESS_TIMEOUT",
+        },
+      })
       await sleep(3000)
       await SocketRoundChangeEvent(partyId)
     }
@@ -434,12 +480,14 @@ io.on("connection", (socket) => {
     // TODO: check if user is party leader
     // TODO: check if both teams have at least 1 user
 
-    const emitEvent: SocketChangeGameStateEvent = {
-      state: "TOSS",
-      startingCredits: event.startingCredits,
-      allowCustomWord: event.allowCustomWord,
-    }
-    io.to(partyId).emit("SocketChangeGameStateEvent", emitEvent)
+    ioSend(partyId, {
+      type: "SocketChangeGameStateEvent",
+      event: {
+        state: "TOSS",
+        startingCredits: event.startingCredits,
+        allowCustomWord: event.allowCustomWord,
+      },
+    })
 
     await sleep(5000)
 
@@ -460,24 +508,31 @@ io.on("connection", (socket) => {
 
     if (event.guess.toLowerCase() == party.currentWord.word.toLowerCase()) {
       console.log("cc")
-      io.to(partyId).emit("SocketChangeGameStateEvent", {
-        state: "GUESS_CORRECT",
-        guesserId: userId,
-      } as SocketChangeGameStateEvent)
+      ioSend(partyId, {
+        type: "SocketChangeGameStateEvent",
+        event: {
+          state: "GUESS_CORRECT",
+          guesserId: userId,
+        },
+      })
 
-      const addPointsEvent: SocketAddPointsEvent = {
-        team: party.teams.red.has(userId) ? "red" : "blue",
-        userId: userId,
-        points: party.currentWord.points,
-      }
-      io.to(partyId).emit("SocketAddPointsEvent", addPointsEvent)
+      ioSend(partyId, {
+        type: "SocketAddPointsEvent",
+        event: {
+          team: party.teams.red.has(userId) ? "red" : "blue",
+          userId: userId,
+          points: party.currentWord.points,
+        },
+      })
 
-      const emitEvent: SocketAddPointsEvent = {
-        team: party.drawingTeam === "red" ? "blue" : "red",
-        points: -party.currentWord.points,
-        userId: null,
-      }
-      io.to(partyId).emit("SocketAddPointsEvent", emitEvent)
+      ioSend(partyId, {
+        type: "SocketAddPointsEvent",
+        event: {
+          team: party.drawingTeam === "red" ? "blue" : "red",
+          points: -party.currentWord.points,
+          userId: null,
+        },
+      })
       await sleep(3000)
       await SocketRoundChangeEvent(partyId)
     }
@@ -501,11 +556,13 @@ io.on("connection", (socket) => {
       party.wordVotes.set(event.word, new Set([userId]))
     else party.wordVotes.get(event.word)!.add(userId)
 
-    const emitEvent: SocketVoteWordEvent = {
-      userId: userId,
-      word: event.word,
-    }
-    io.to(partyId).emit("SocketVoteWord", emitEvent)
+    ioSend(partyId, {
+      type: "SocketVoteWord",
+      event: {
+        userId: userId,
+        word: event.word,
+      },
+    })
   })
 
   // Triggered when user submits a custom word.
@@ -520,10 +577,12 @@ io.on("connection", (socket) => {
       const word = { word: event.word, points: 1000, userId: userId }
       party.wordVotes.set(word, new Set([userId]))
 
-      let emitEvent: SocketAddCustomWordEvent = {
-        word: word,
-      }
-      io.to(partyId).emit("SocketAddCustomWord", emitEvent)
+      ioSend(partyId, {
+        type: "SocketAddCustomWord",
+        event: {
+          word: word,
+        },
+      })
     },
   )
 
@@ -536,7 +595,7 @@ io.on("connection", (socket) => {
     const partyId = userPartyMap.get(userId)
     if (!partyId) return
 
-    socket.to(partyId).emit("SocketStartDrawing", event)
+    ioSend(partyId, { type: "SocketStartDrawing", event })
   })
 
   socket.on("SocketDraw", (event: SocketDrawEvent) => {
@@ -545,7 +604,7 @@ io.on("connection", (socket) => {
     const partyId = userPartyMap.get(userId)
     if (!partyId) return
 
-    socket.to(partyId).emit("SocketDraw", event)
+    ioSend(partyId, { type: "SocketDraw", event })
   })
 
   socket.on("SocketFinishDrawing", (event: SocketFinishDrawingEvent) => {
@@ -554,7 +613,7 @@ io.on("connection", (socket) => {
     const partyId = userPartyMap.get(userId)
     if (!partyId) return
 
-    socket.to(partyId).emit("SocketFinishDrawing", event)
+    ioSend(partyId, { type: "SocketFinishDrawing", event })
   })
 })
 
