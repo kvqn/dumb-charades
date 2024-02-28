@@ -15,6 +15,8 @@ import type {
   SocketUserVoteWordEvent,
   SocketGuessEvent,
   SocketAddPointsEvent,
+  SocketAddCustomWordEvent,
+  SocketSubmitCustomWordEvent,
 } from "@/types"
 import { type Prisma } from "@prisma/client"
 import { type User } from "next-auth"
@@ -30,6 +32,10 @@ import { titleCase } from "@/client/utils"
 import { Coin } from "@/components/Coin"
 import { AlternatingImage } from "@/components/AlternatingImage"
 import useSound from "use-sound"
+import { TextInput } from "@/components/TextInput"
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
+import { faCheck } from "@fortawesome/free-solid-svg-icons"
+import { setMaxListeners } from "stream"
 
 export function Game({ partyId, user }: { partyId: string; user: User }) {
   const [members, setMembers] = useState<Prisma.UserGetPayload<object>[]>([])
@@ -210,6 +216,7 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
   const [playAudio_correctGuess] = useSound("/static/sounds/correct-guess.wav")
 
   const [startingCredits, setStartingCredits] = useState(1000)
+  const [allowCustomWord, setAllowCustomWord] = useState(false)
 
   useEffect(() => {
     const SocketChangeGameStateHandler = (
@@ -232,6 +239,7 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
       }
       if (event.state === "TOSS") {
         setStartingCredits(event.startingCredits)
+        setAllowCustomWord(event.allowCustomWord)
       }
       setGameStateEvent(event)
     }
@@ -272,6 +280,7 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
             isLeader={isLeader}
             drawingUserId={drawingUserId}
             drawingTeam={drawingTeam}
+            allowCustomWord={allowCustomWord}
           />
         </div>
         <ChatBox
@@ -386,6 +395,7 @@ function CenterBoard({
   isLeader,
   drawingUserId,
   drawingTeam,
+  allowCustomWord,
 }: {
   gameStateEvent: SocketChangeGameStateEvent
   user: User
@@ -396,12 +406,14 @@ function CenterBoard({
   isLeader: boolean
   drawingUserId?: string
   drawingTeam?: "red" | "blue"
+  allowCustomWord: boolean
 }) {
   let rounds = 3
   let timeToGuess = 30
   let category = "Gaming"
   let choices = 3
   let startingCredits = 300
+  let _allowCustomWord = false
 
   const userTeam = teams.red.has(user.id) ? "red" : "blue"
 
@@ -505,6 +517,16 @@ function CenterBoard({
                   <option>2000</option>
                 </select>
               </div>
+              <div className="flex items-center gap-2">
+                <div>Allow Custom Words</div>
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  onChange={(e) => {
+                    _allowCustomWord = e.target.checked
+                  }}
+                />
+              </div>
             </div>
             <div className="flex gap-2">
               <button
@@ -515,6 +537,7 @@ function CenterBoard({
                     category: category,
                     wordChoices: choices,
                     startingCredits: startingCredits,
+                    allowCustomWord: _allowCustomWord,
                   }
                   socket.emit("SocketStartGameEvent", event)
                 }}
@@ -569,6 +592,7 @@ function CenterBoard({
             words={gameStateEvent.words}
             isVoting={userTeam != gameStateEvent.drawingTeam}
             userTeam={userTeam}
+            allowCustomWord={allowCustomWord}
           />
         }
       />
@@ -752,16 +776,21 @@ function Voting({
   isVoting,
   teams,
   userTeam,
+  allowCustomWord,
 }: {
   words: Word[]
   isVoting: boolean
   teams: { red: Map<string, SimpleUser>; blue: Map<string, SimpleUser> }
   userTeam: "red" | "blue"
+  allowCustomWord: boolean
 }) {
-  const [_words, setWords] = useState<
-    { points: number; word: string; votes: Set<string> }[]
-  >(words.map((word) => ({ ...word, votes: new Set<string>() })))
+  const [_words, setWords] = useState<(Word & { votes: Set<string> })[]>(
+    words.map((word) => ({ ...word, votes: new Set<string>() })),
+  )
   const [renders, rerender] = useState(0)
+
+  const [hasSubmittedCustomWord, setHasSubmittedCustomWord] = useState(false)
+  let customWord = ""
 
   useEffect(() => {
     const SocketVoteWordHandler = (event: SocketVoteWordEvent) => {
@@ -771,15 +800,26 @@ function Voting({
         if (word.votes.has(event.userId)) word.votes.delete(event.userId)
       })
       newWords.forEach((word) => {
-        if (word.word === event.word) word.votes.add(event.userId)
+        if (word === event.word) word.votes.add(event.userId)
       })
       setWords(newWords)
       rerender(renders + 1)
     }
+
+    const SocketAddCustomWordHandler = (event: SocketAddCustomWordEvent) => {
+      console.log("SocketAddCustomWord", event)
+      const newWords = _words
+      newWords.push({ ...event.word, votes: new Set([event.word.userId!]) })
+      setWords(newWords)
+      rerender(renders + 1)
+    }
+
     socket.on("SocketVoteWord", SocketVoteWordHandler)
+    socket.on("SocketAddCustomWord", SocketAddCustomWordHandler)
 
     return () => {
       socket.off("SocketVoteWord", SocketVoteWordHandler)
+      socket.off("SocketAddCustomWord", SocketAddCustomWordHandler)
     }
   }, [_words, renders])
 
@@ -791,7 +831,7 @@ function Voting({
     )
 
   return (
-    <div className="flex h-full w-full flex-col justify-center gap-2 bg-blue-100">
+    <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-blue-100">
       <div className="w-full text-center">Voting</div>
       <div className="flex flex-wrap items-center justify-center gap-2">
         {_words.map((word, idx) => (
@@ -800,7 +840,7 @@ function Voting({
             className="relative flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-black bg-white px-4 py-2 hover:bg-slate-100"
             onClick={() => {
               const emitEvent: SocketUserVoteWordEvent = {
-                word: word.word,
+                word: word,
               }
               socket.emit("SocketUserVoteWord", emitEvent)
             }}
@@ -824,6 +864,30 @@ function Voting({
           </div>
         ))}
       </div>
+      {allowCustomWord && !hasSubmittedCustomWord ? (
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-black px-4 py-2">
+          Custom Word
+          <div className="flex items-center gap-2">
+            <TextInput
+              onChange={(e) => {
+                customWord = e.target.value
+              }}
+            />
+            <FontAwesomeIcon
+              icon={faCheck}
+              className="cursor-pointer rounded-lg border border-black bg-green-300 p-2 hover:bg-green-400"
+              onClick={() => {
+                if (customWord == "") return
+                setHasSubmittedCustomWord(true)
+                const emitEvent: SocketSubmitCustomWordEvent = {
+                  word: customWord,
+                }
+                socket.emit("SocketSubmitCustomWord", emitEvent)
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

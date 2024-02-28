@@ -4,6 +4,7 @@ import { db } from "@/server/db"
 import { sleep } from "@/server/utils"
 import { type Word, getRandomWords } from "@/server/words"
 import type {
+  SocketAddCustomWordEvent,
   SocketAddPointsEvent,
   SocketChangeGameStateEvent,
   SocketChangeTeamEvent,
@@ -15,6 +16,7 @@ import type {
   SocketPartyDestroyEvent,
   SocketStartDrawingEvent,
   SocketStartGameEvent,
+  SocketSubmitCustomWordEvent,
   SocketUserEnterEvent,
   SocketUserVoteWordEvent,
   SocketVoteWordEvent,
@@ -44,7 +46,7 @@ type Party = {
   timeToGuess: number
   category: "Gaming" | "Technology"
   wordChoices: number
-  wordVotes: Map<string, Set<string>>
+  wordVotes: Map<Word, Set<string>>
   startingCredits: number
 }
 
@@ -80,7 +82,7 @@ const getParty = async (partyId: string) => {
     timeToGuess: 10000,
     category: "Gaming" as const,
     wordChoices: 3,
-    wordVotes: new Map<string, Set<string>>(),
+    wordVotes: new Map<Word, Set<string>>(),
     startingCredits: 1000,
   }
 
@@ -342,7 +344,7 @@ io.on("connection", (socket) => {
     const words = getRandomWords(party.category, party.wordChoices)
 
     words.forEach((word) => {
-      party.wordVotes.set(word.word, new Set())
+      party.wordVotes.set(word, new Set())
     })
 
     const half = party.half
@@ -361,7 +363,7 @@ io.on("connection", (socket) => {
 
     io.to(partyId).emit("SocketChangeGameStateEvent", emitEvent)
 
-    await sleep(10000)
+    await sleep(15000)
 
     party = partyMap.get(partyId)!
 
@@ -369,7 +371,7 @@ io.on("connection", (socket) => {
       (a, b) => b[1].size - a[1].size,
     )[0]![0]
 
-    party.currentWord = words.filter((w) => w.word === word)[0]!
+    party.currentWord = word
 
     emitEvent = {
       state: "DRAWING",
@@ -435,6 +437,7 @@ io.on("connection", (socket) => {
     const emitEvent: SocketChangeGameStateEvent = {
       state: "TOSS",
       startingCredits: event.startingCredits,
+      allowCustomWord: event.allowCustomWord,
     }
     io.to(partyId).emit("SocketChangeGameStateEvent", emitEvent)
 
@@ -504,6 +507,25 @@ io.on("connection", (socket) => {
     }
     io.to(partyId).emit("SocketVoteWord", emitEvent)
   })
+
+  // Triggered when user submits a custom word.
+  socket.on(
+    "SocketSubmitCustomWord",
+    async (event: SocketSubmitCustomWordEvent) => {
+      const { userId, partyId } = getUserAndParty(socket.id)
+      if (!userId || !partyId) return
+      const party = await getParty(partyId)
+      if (!party) return
+
+      const word = { word: event.word, points: 1000, userId: userId }
+      party.wordVotes.set(word, new Set([userId]))
+
+      let emitEvent: SocketAddCustomWordEvent = {
+        word: word,
+      }
+      io.to(partyId).emit("SocketAddCustomWord", emitEvent)
+    },
+  )
 
   // These events are triggered by the canvas.
   // If you have an issue, it's probably not here.

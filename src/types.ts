@@ -86,6 +86,7 @@ export type SocketChangeGameStateEvent =
   | {
       state: "TOSS"
       startingCredits: number
+      allowCustomWord: boolean
     }
   | {
       state: "ROUND_CHANGE"
@@ -121,19 +122,28 @@ export type SocketStartGameEvent = {
   category: string
   wordChoices: number
   startingCredits: number
+  allowCustomWord: boolean
 }
 
 export type SocketUserVoteWordEvent = {
-  word: string
+  word: Word
 }
 
 export type SocketVoteWordEvent = {
   userId: string
-  word: string
+  word: Word
 }
 
 export type SocketAddPointsEvent = {
   team: "red" | "blue"
   userId: string | null
   points: number
+}
+
+export type SocketSubmitCustomWordEvent = {
+  word: string
+}
+
+export type SocketAddCustomWordEvent = {
+  word: Word
 }

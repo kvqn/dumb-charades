@@ -1,6 +1,7 @@
 export type Word = {
   points: number
   word: string
+  userId?: string
 }
 
 const GamingWords: Word[] = [
