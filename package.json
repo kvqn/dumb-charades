@@ -30,6 +30,7 @@
     "@t3-oss/env-nextjs": "^0.7.1",
     "@types/howler": "^2.2.11",
     "commitlint": "^18.4.4",
+    "copy-to-clipboard": "^3.3.3",
     "env-cmd": "^10.1.0",
     "next": "14.0.1",
     "next-auth": "^4.24.5",

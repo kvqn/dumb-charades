@@ -37,7 +37,10 @@ import { AlternatingImage } from "@/components/AlternatingImage"
 import useSound from "use-sound"
 import { TextInput } from "@/components/TextInput"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
-import { faCheck } from "@fortawesome/free-solid-svg-icons"
+import { faCheck, faLink } from "@fortawesome/free-solid-svg-icons"
+import copy from "copy-to-clipboard"
+import { env } from "@/env"
+import toast from "react-hot-toast"
 
 type EventPayload =
   | { type: "SocketIdentify"; event: string }
@@ -306,6 +309,7 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
             drawingUserId={drawingUserId}
             drawingTeam={drawingTeam}
             allowCustomWord={allowCustomWord}
+            partyId={partyId}
           />
         </div>
         <ChatBox
@@ -421,6 +425,7 @@ function CenterBoard({
   drawingUserId,
   drawingTeam,
   allowCustomWord,
+  partyId,
 }: {
   gameStateEvent: SocketChangeGameStateEvent
   user: User
@@ -432,6 +437,7 @@ function CenterBoard({
   drawingUserId?: string
   drawingTeam?: "red" | "blue"
   allowCustomWord: boolean
+  partyId: string
 }) {
   let rounds = 3
   let timeToGuess = 30
@@ -462,7 +468,17 @@ function CenterBoard({
 
   if (gameStateEvent.state === "LOBBY") {
     return (
-      <div className="flex h-full w-full flex-col items-center justify-between p-4">
+      <div className="relative flex h-full w-full flex-col items-center justify-between p-4">
+        <div
+          className="absolute right-2 top-2 flex cursor-pointer items-center gap-1 rounded-lg border border-2 border-black bg-yellow-200 p-2 hover:border-yellow-800 hover:bg-yellow-300"
+          onClick={() => {
+            toast.success("Party link copied to clipboard")
+            copy(`${env.NEXT_PUBLIC_WEBSITE_URL}/party/${partyId}`)
+          }}
+        >
+          <p>Share Party Link</p>
+          <FontAwesomeIcon icon={faLink} />
+        </div>
         <div className="flex flex-grow flex-col items-center justify-center gap-4 p-16">
           <JoinTeamButton team="red" user={user} />
           <JoinTeamButton team="blue" user={user} />
