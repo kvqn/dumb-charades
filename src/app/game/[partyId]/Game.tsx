@@ -312,12 +312,14 @@ export function Game({ partyId, user }: { partyId: string; user: User }) {
             partyId={partyId}
           />
         </div>
-        <ChatBox
-          chatMessages={chatMessages}
-          chatBoxRef={chatBoxRef}
-          user={user}
-          teams={teams}
-        />
+        <div className="w-[300px]">
+          <ChatBox
+            chatMessages={chatMessages}
+            chatBoxRef={chatBoxRef}
+            user={user}
+            teams={teams}
+          />
+        </div>
         <div className="flex flex-col items-center"></div>
       </div>
     </div>
@@ -746,9 +748,9 @@ function ChatBox({
   }
 }) {
   return (
-    <div className="flex flex-shrink flex-col bg-yellow-50 p-2">
+    <div className="flex h-full w-full flex-shrink flex-col bg-yellow-50 p-2">
       <div className="w-full p-2 text-center font-bold">CHAT</div>
-      <div className="flex-grow overflow-auto">
+      <div className="flex-grow overflow-auto text-wrap">
         {chatMessages.map((event, idx) => (
           <div key={idx}>
             <Message message={event} teams={teams} />
