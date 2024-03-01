@@ -1,3 +1,5 @@
+import { ClientSessionProvider } from "@/components/_SessionProvider"
+import { getServerAuthSession } from "@/server/auth"
 import "@/styles/globals.css"
 import { Toaster } from "react-hot-toast"
 
@@ -12,14 +14,17 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  const session = await getServerAuthSession()
   return (
     <html lang="en">
       <body>
-        <div className="pattern-dots-md h-screen w-screen bg-teal-50 text-gray-200">
-          <div className="flex h-full flex-col overflow-hidden font-virgil text-black">
-            {children}
+        <ClientSessionProvider session={session}>
+          <div className="pattern-dots-md h-screen w-screen bg-teal-50 text-gray-200">
+            <div className="flex h-full flex-col overflow-hidden font-virgil text-black">
+              {children}
+            </div>
           </div>
-        </div>
+        </ClientSessionProvider>
         <Toaster containerClassName="font-virgil" />
       </body>
     </html>

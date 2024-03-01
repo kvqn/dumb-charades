@@ -3,8 +3,11 @@
 import { TextInput } from "@/components/TextInput"
 import { UserImage } from "@/components/UserImage"
 import { changeSettings } from "@/server/actions/changeSettings"
+import { faRightFromBracket } from "@fortawesome/free-solid-svg-icons"
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
 import { type Session } from "next-auth"
-import { useRouter, useSearchParams } from "next/navigation"
+import { signOut } from "next-auth/react"
+import { redirect, useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
 import toast, { Toaster } from "react-hot-toast"
 import { twMerge } from "tailwind-merge"
@@ -63,6 +66,18 @@ export function SettingsPage_ClientSide({
       <div className="rounded-xl border-2 border-black bg-white p-8">
         <div className="text-4xl">User Profile</div>
         <div className="flex flex-col gap-4 pt-4 text-2xl">
+          <div className="flex w-full justify-end">
+            <div
+              className="flex cursor-pointer items-center gap-2 rounded-xl border border-black bg-red-300 px-4 py-2 text-lg hover:border-red-800 hover:bg-red-400"
+              onClick={async () => {
+                await signOut()
+                redirect("/")
+              }}
+            >
+              <FontAwesomeIcon icon={faRightFromBracket} />
+              Sign Out
+            </div>
+          </div>
           <div className="flex w-full items-center gap-4">
             <div className="w-1/3 text-right">Username</div>
             <TextInput
