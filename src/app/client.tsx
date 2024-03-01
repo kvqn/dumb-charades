@@ -2,7 +2,7 @@
 
 import { TextInput } from "@/components/TextInput"
 import Link from "next/link"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
 import { faCheck } from "@fortawesome/free-solid-svg-icons"
 import { tryToJoinParty } from "@/server/actions/tryToJoinParty"
@@ -109,6 +109,57 @@ export function StartGame({ loggedIn }: { loggedIn: boolean }) {
           />
         </div>
       </div>
+    </div>
+  )
+}
+
+function randomColor() {
+  const randomColor = Math.floor(Math.random() * 16777215)
+  const hexColor = "#" + randomColor.toString(16).padStart(6, "0")
+  return hexColor
+}
+
+export function FancyTitle() {
+  const [colors, setColors] = useState<string[]>(Array(13).fill("black"))
+  const queue: string[] = []
+  const [renders, reRender] = useState(0)
+
+  useEffect(() => {
+    setTimeout(() => {
+      const _colors = colors
+      for (let i = 13; i >= 1; i--) {
+        _colors[i] = _colors[i - 1]!
+      }
+      console.log(queue)
+      _colors[0] = queue.length === 0 ? "black" : queue.shift()!
+      setColors(_colors)
+      reRender(renders + 1)
+    }, 200)
+  }, [renders])
+
+  function clickAction() {
+    const color = randomColor()
+    queue.push(color)
+  }
+
+  return (
+    <div
+      className="flex h-1/3 cursor-pointer select-none items-center text-8xl font-black"
+      onClick={clickAction}
+    >
+      <p style={{ color: colors[0] }}>S</p>
+      <p style={{ color: colors[1] }}>c</p>
+      <p style={{ color: colors[2] }}>r</p>
+      <p style={{ color: colors[3] }}>i</p>
+      <p style={{ color: colors[4] }}>b</p>
+      <p style={{ color: colors[5] }}>b</p>
+      <p style={{ color: colors[6] }}>l</p>
+      <p style={{ color: colors[7] }}>e</p>
+      <p style={{ color: colors[8], width: "2rem" }}> </p>
+      <p style={{ color: colors[9] }}>W</p>
+      <p style={{ color: colors[10] }}>a</p>
+      <p style={{ color: colors[11] }}>r</p>
+      <p style={{ color: colors[12] }}>s</p>
     </div>
   )
 }
