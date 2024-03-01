@@ -50,7 +50,10 @@ export function StartGame({ loggedIn }: { loggedIn: boolean }) {
 
   if (!loggedIn)
     return (
-      <Link className="flex flex-grow items-center" href="/api/auth/signin">
+      <Link
+        className="flex flex-grow items-center text-4xl hover:font-bold"
+        href="/api/auth/signin"
+      >
         Log in to play
       </Link>
     )
