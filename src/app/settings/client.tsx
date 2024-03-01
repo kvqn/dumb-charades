@@ -19,12 +19,20 @@ export function SettingsPage_ClientSide({
 }) {
   const loggedIn = session && session.user ? true : false
   const [username, setUsername] = useState(session?.user.name)
+  const [userImage, setUserImage] = useState(session?.user.image!)
   const [changes, setChanges] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const originalUsername = session?.user.name
 
   const router = useRouter()
   const searchParams = useSearchParams()
+
+  const userAllImages: string[] = [
+    session?.user.image!,
+    "/static/images/avatar-1.png",
+    "/static/images/avatar-2.png",
+    "/static/images/avatar-3.png",
+  ]
 
   useEffect(() => {
     const _ = async () => {
@@ -37,18 +45,20 @@ export function SettingsPage_ClientSide({
   }, [])
 
   useEffect(() => {
-    if (username != originalUsername) {
+    if (username != originalUsername || userImage != session?.user.image) {
       setChanges(true)
     } else {
       setChanges(false)
     }
-  }, [username, changes])
+  }, [username, userImage, changes])
 
   if (typeof username != "string") return
 
   const handleSubmit = async () => {
     setSubmitting(true)
-    const resp = await changeSettings({ userProfile: { username: username } })
+    const resp = await changeSettings({
+      userProfile: { username: username, image: userImage },
+    })
     if (resp.status === "error") {
       setSubmitting(false)
       toast.error(resp.message)
@@ -92,7 +102,20 @@ export function SettingsPage_ClientSide({
           </div>
           <div className="flex w-full items-center gap-4">
             <div className="w-1/3 text-right">Avatar</div>
-            <UserImage src={session?.user.image} size={100} />
+            <UserImage src={userImage} size={100} />
+            <div className="w-max-[20%] flex h-[100px] flex-col flex-wrap items-center justify-center gap-4">
+              {userAllImages.map((img, i) => (
+                <UserImage
+                  size={40}
+                  src={img}
+                  key={i}
+                  onClick={() => {
+                    setUserImage(img)
+                  }}
+                  className="cursor-pointer hover:scale-110"
+                />
+              ))}
+            </div>
           </div>
         </div>
         <div className="flex w-full justify-end">

@@ -6,11 +6,13 @@ export function UserImage({
   className,
   scale = 1,
   size = 20,
+  onClick,
 }: {
   src: string | undefined | null
   className?: string
   scale?: number
   size?: number
+  onClick?: () => void
 }) {
   return (
     <div
@@ -23,6 +25,7 @@ export function UserImage({
         height: size,
         width: size,
       }}
+      onClick={onClick}
     >
       {src ? <Image width={size} height={size} src={src} alt="img" /> : null}
     </div>

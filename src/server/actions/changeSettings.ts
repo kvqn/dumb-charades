@@ -10,6 +10,7 @@ function checkValidUsername(username: string): boolean {
 export async function changeSettings(settings: {
   userProfile: {
     username: string
+    image: string
   }
 }): Promise<
   | {
@@ -42,6 +43,7 @@ export async function changeSettings(settings: {
     },
     data: {
       name: settings.userProfile.username,
+      image: settings.userProfile.image,
     },
   })
 
