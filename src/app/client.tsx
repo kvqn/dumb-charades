@@ -130,7 +130,6 @@ export function FancyTitle() {
       for (let i = 13; i >= 1; i--) {
         _colors[i] = _colors[i - 1]!
       }
-      console.log(queue)
       _colors[0] = queue.length === 0 ? "black" : queue.shift()!
       setColors(_colors)
       reRender(renders + 1)

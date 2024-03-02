@@ -858,7 +858,12 @@ function Voting({
         if (word.votes.has(event.userId)) word.votes.delete(event.userId)
       })
       newWords.forEach((word) => {
-        if (word === event.word) word.votes.add(event.userId)
+        if (
+          word.word === event.word.word &&
+          word.points === event.word.points &&
+          word.userId === event.word.userId
+        )
+          word.votes.add(event.userId)
       })
       setWords(newWords)
       rerender(renders + 1)
@@ -887,6 +892,8 @@ function Voting({
         {userTeam === "red" ? "Blue" : "Red"} team is voting
       </div>
     )
+
+  console.log("_words", _words)
 
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-blue-100">
