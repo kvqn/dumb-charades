@@ -41,6 +41,7 @@ import { faCheck, faLink } from "@fortawesome/free-solid-svg-icons"
 import copy from "copy-to-clipboard"
 import { env } from "@/env"
 import toast from "react-hot-toast"
+import { TossBlue, TossRed, TossSpinning } from "@/components/TossAnimation"
 
 type EventPayload =
   | { type: "SocketIdentify"; event: string }
@@ -605,7 +606,9 @@ function CenterBoard({
 
   if (gameStateEvent.state === "TOSS") {
     return (
-      <div className="flex h-full w-full items-center justify-center">TOSS</div>
+      <div className="flex h-full w-full items-center justify-center">
+        <TossSpinning />
+      </div>
     )
   }
 
@@ -619,7 +622,11 @@ function CenterBoard({
         ms={4000}
         before={
           <div className="flex h-full w-full flex-col items-center justify-center">
-            <div>Drawing from Red Team</div>
+            {gameStateEvent.drawingTeam === "red" ? <TossRed /> : <TossBlue />}
+            <div>
+              Drawing from{" "}
+              {gameStateEvent.drawingTeam === "red" ? "Red" : "Blue"} Team
+            </div>
             <ChangeAfterSomeTime
               ms={2000}
               before={null}
