@@ -476,7 +476,7 @@ function CenterBoard({
           className="absolute right-2 top-2 flex cursor-pointer items-center gap-1 rounded-lg border border-2 border-black bg-yellow-200 p-2 hover:border-yellow-800 hover:bg-yellow-300"
           onClick={() => {
             toast.success("Party link copied to clipboard")
-            copy(`${env.NEXT_PUBLIC_WEBSITE_URL}/party/${partyId}`)
+            copy(`${env.NEXT_PUBLIC_WEBSITE_URL}/game/${partyId}`)
           }}
         >
           <p>Share Party Link</p>
