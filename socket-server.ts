@@ -504,6 +504,8 @@ io.on("connection", (socket) => {
     const party = await getParty(partyId)
     if (!party) return
     if (!party.currentWord) return
+    if (party.drawingTeam === "red" && !party.teams.red.has(userId)) return
+    if (party.drawingTeam === "blue" && !party.teams.blue.has(userId)) return
     console.log("bb")
 
     if (event.guess.toLowerCase() == party.currentWord.word.toLowerCase()) {
