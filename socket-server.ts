@@ -509,6 +509,13 @@ io.on("connection", (socket) => {
     console.log("bb")
 
     if (event.guess.toLowerCase() == party.currentWord.word.toLowerCase()) {
+      Array.from(socketUserMap.entries())
+        .filter((entry) => entry[1] === party.drawingUserId)
+        .map((entry) => entry[0])
+        .forEach((socketId) => {
+          console.log("start drawing", socketId)
+          ioSend(socketId, { type: "SocketUserStopDrawing" })
+        })
       console.log("cc")
       ioSend(partyId, {
         type: "SocketChangeGameStateEvent",
